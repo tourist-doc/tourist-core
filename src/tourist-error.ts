@@ -2,7 +2,9 @@ export type ErrorCase =
     "AlreadyInitialized"
   | "ReadFailure"
   | "WriteFailure"
-  | "CheckFailed";
+  | "CheckFailed"
+  | "AbstractionFailed"
+  | "NoConfig";
 
 export class TouristError extends Error {
   constructor(err: ErrorCase) {
