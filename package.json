@@ -1,5 +1,5 @@
 {
-  "name": "tourist-node",
+  "name": "tourist",
   "version": "1.0.0",
   "description": "An implementation of Tourist in node.js.",
   "main": "main.js",
