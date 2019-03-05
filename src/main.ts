@@ -15,12 +15,20 @@ if (fs.existsSync(fname)) {
 }
 (async () => {
   await tourist.init(fname);
-  await tourist.add(fname, {
-    absPath: "/home/hgoldstein/Projects/hgoldstein95.github.io/index.md",
-    column: 1,
-    line: 1,
-    title: "Tour Stop 1",
-  });
+  await tourist.add(
+    fname,
+    {
+      absPath: "/home/hgoldstein/Projects/hgoldstein95.github.io/index.md",
+      column: 1,
+      line: 1,
+      title: "Tour Stop 1",
+    },
+    null,
+    {
+      "hgoldstein95.github.io":
+        "/home/hgoldstein/Projects/hgoldstein95.github.io",
+    },
+  );
 
   const tf = await tourist.dump(fname);
   print(JSON.stringify(tf, null, 2));

@@ -54,8 +54,11 @@ async function readTourConfig(): Promise<Config> {
   }
 }
 
-async function resolveStop(stop: TourStop): Promise<AbsoluteTourStop> {
-  const cfg = await readTourConfig();
+async function resolveStop(
+  stop: TourStop,
+  config: Config | null,
+): Promise<AbsoluteTourStop> {
+  const cfg = config || await readTourConfig();
   return {
     absPath: pathutil.join(cfg[stop.repository], stop.relPath),
     body: stop.body,
@@ -65,8 +68,11 @@ async function resolveStop(stop: TourStop): Promise<AbsoluteTourStop> {
   };
 }
 
-async function abstractStop(stop: AbsoluteTourStop): Promise<TourStop> {
-  const cfg = await readTourConfig();
+async function abstractStop(
+  stop: AbsoluteTourStop,
+  config: Config | null,
+): Promise<TourStop> {
+  const cfg = config || await readTourConfig();
   let repository: string | null = null;
   let relPath: string | null = null;
   Object.entries(cfg).forEach(([repo, path]) => {
@@ -104,9 +110,10 @@ async function add(
   path: string = "tour.json",
   stop: AbsoluteTourStop,
   index: number | null = null,
+  config: Config | null = null,
 ) {
   const tf = await readTourFile(path);
-  const relStop = await abstractStop(stop);
+  const relStop = await abstractStop(stop, config);
   if (index !== null) {
     tf.stops.splice(index, 0, relStop);
   } else {
@@ -136,19 +143,25 @@ async function move(
   path: string = "tour.json",
   index: number,
   stopPos: TourStopPos,
+  config: Config | null = null,
 ) {
   const tf = await readTourFile(path);
-  const stop = await resolveStop(tf.stops[index]);
+  const stop = await resolveStop(tf.stops[index], config);
   stop.absPath = stopPos.absPath;
   stop.column = stopPos.column;
   stop.line = stopPos.line;
-  tf.stops[index] = await abstractStop(stop);
+  tf.stops[index] = await abstractStop(stop, config);
   await writeTourFile(path, tf);
 }
 
-async function resolve(path: string = "tour.json"): Promise<Tour> {
+async function resolve(
+  path: string = "tour.json",
+  config: Config | null = null,
+): Promise<Tour> {
   const tf = await readTourFile(path);
-  const stops = await Promise.all(tf.stops.map(resolveStop));
+  const stops = await Promise.all(
+    tf.stops.map((stop) => resolveStop(stop, config)),
+  );
   return {
     stops,
     title: tf.title,
