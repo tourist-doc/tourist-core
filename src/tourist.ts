@@ -98,7 +98,7 @@ async function abstractStop(
 
 async function init(path: string = "tour.json", title: string = "Tour") {
   if (await af.exists(path)) { throw new TouristError("AlreadyInitialized"); }
-  writeTourFile(path, {
+  await writeTourFile(path, {
     repositories: [],
     stops: [],
     title,
