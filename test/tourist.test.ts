@@ -1,21 +1,37 @@
 import * as assert from "assert";
 import * as del from "del";
-import { mkdirSync, rmdirSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync} from "fs";
 import { after, afterEach, before, suite, test } from "mocha";
+import { Repository, Signature } from "nodegit";
+import { normalize } from "path";
+import { cwd } from "process";
 import { AbsoluteTourStop } from "..";
 import tourist from "../src/tourist";
 import { TouristError } from "../src/tourist-error";
 
-const testDataFolder = "./test/data";
-const tourPath = testDataFolder + "/test.tour";
+const testDataFolder = normalize(cwd() + "/test/data/");
+const tourPath = normalize(testDataFolder + "test.tour");
+const repoPath = normalize(testDataFolder + "repo/");
+const repoFiles = ["file1.txt", "file2.py", "file3.ts"].map(normalize);
+
+const signature = Signature.now("Jason Fields", "jasonfields4@gmail.com");
+const config = { repo: repoPath };
+const title = "My test tour";
 
 suite("tour", () => {
-  before("create test data folder", async () => {
-    mkdirSync(testDataFolder);
+  before("create test data folder, initialize repo", async () => {
+    if (!existsSync(testDataFolder)) {
+      mkdirSync(testDataFolder);
+      const repo = await Repository.init(repoPath, 0);
+      repoFiles.forEach((path) => {
+        writeFileSync(repoPath + path, "Test data");
+      });
+      await repo.createCommitOnHead(repoFiles, signature, signature, "Initial commit");
+    }
   });
 
   after("delete test data folder", async () => {
-    rmdirSync(testDataFolder);
+    del.sync(testDataFolder + "/**");
   });
 
   afterEach("clear test data", async () => {
@@ -23,8 +39,6 @@ suite("tour", () => {
   });
 
   test("init", async () => {
-    const title = "My test tour";
-
     await tourist.init(tourPath, title);
     const tour = await tourist.resolve(tourPath);
 
@@ -48,10 +62,8 @@ suite("tour", () => {
   });
 
   test("add a tourstop", async () => {
-    const title = "My test tour";
-    const config = { repo: "\\path\\to" };
     const stop = {
-      absPath: "\\path\\to\\file.txt",
+      absPath: repoPath + repoFiles[0],
       body: "My test body",
       column: 1,
       line: 1,
@@ -67,10 +79,8 @@ suite("tour", () => {
   });
 
   test("remove a tourstop", async () => {
-    const title = "My test tour";
-    const config = { repo: "\\path\\to" };
     const stop = {
-      absPath: "\\path\\to\\file.txt",
+      absPath: repoPath + repoFiles[0],
       body: "My test body",
       column: 1,
       line: 1,
@@ -86,10 +96,8 @@ suite("tour", () => {
   });
 
   test("edit a tourstop", async () => {
-    const title = "My test tour";
-    const config = { repo: "\\path\\to" };
     const stop = {
-      absPath: "\\path\\to\\file.txt",
+      absPath: repoPath + repoFiles[0],
       body: "My test body",
       column: 1,
       line: 1,
@@ -106,10 +114,8 @@ suite("tour", () => {
   });
 
   test("move a tourstop", async () => {
-    const title = "My test tour";
-    const config = { repo: "\\path\\to" };
     const stop = {
-      absPath: "\\path\\to\\file.txt",
+      absPath: repoPath + repoFiles[0],
       body: "My test body",
       column: 1,
       line: 1,
@@ -118,20 +124,18 @@ suite("tour", () => {
 
     await tourist.init(tourPath, title);
     await tourist.add(tourPath, stop, null, config);
-    await tourist.move(tourPath, 0, { absPath: "\\path\\to\\other_file.txt", column: 12, line: 51 }, config);
+    await tourist.move(tourPath, 0, { absPath: repoPath + repoFiles[1], column: 12, line: 51 }, config);
     const tour = await tourist.resolve(tourPath, config);
 
-    assert.strictEqual(tour.stops[0].absPath, "\\path\\to\\other_file.txt");
+    assert.strictEqual(tour.stops[0].absPath, repoPath + repoFiles[1]);
     assert.strictEqual(tour.stops[0].column, 12);
     assert.strictEqual(tour.stops[0].line, 51);
   });
 
   test("scramble tourstops", async () => {
-    const title = "My test tour";
-    const config = { repo: "\\path\\to" };
     const stops: AbsoluteTourStop[] = ["snap", "crackle", "pop"].map((stopTitle, idx) => {
       return {
-        absPath: `\\path\\to\\${stopTitle}.txt`,
+        absPath: repoPath + repoFiles[idx],
         body: `Body of ${stopTitle}`,
         column: idx,
         line: idx,
