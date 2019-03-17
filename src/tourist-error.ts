@@ -4,7 +4,9 @@ export type ErrorCase =
   | "WriteFailure"
   | "CheckFailed"
   | "AbstractionFailed"
-  | "NoConfig";
+  | "NoConfig"
+  | "CommitMismatch"
+  | "MultipleMaps";
 
 export class TouristError extends Error {
   constructor(err: ErrorCase) {

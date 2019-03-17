@@ -1,4 +1,5 @@
 import af from "async-file";
+import { Commit, Repository } from "nodegit";
 import os from "os";
 import * as pathutil from "path";
 import { TouristError } from "./tourist-error";
@@ -19,11 +20,13 @@ export default {
   dump,
   edit,
   init,
+  mapConfig,
   move,
   refresh,
   remove,
   resolve,
   scramble,
+  unmapConfig,
 };
 
 async function readTourFile(path: string): Promise<TourFile> {
@@ -54,6 +57,12 @@ async function readTourConfig(): Promise<Config> {
   }
 }
 
+async function writeTourConfig(obj: Config) {
+  const config = process.env.TOURIST_CONFIG ?
+    process.env.TOURIST_CONFIG : pathutil.join(os.homedir(), ".tourist");
+  await af.writeFile(config, JSON.stringify(obj, null, 2));
+}
+
 async function resolveStop(
   stop: TourStop,
   config: Config | null,
@@ -71,20 +80,30 @@ async function resolveStop(
 async function abstractStop(
   stop: AbsoluteTourStop,
   config: Config | null,
-): Promise<TourStop> {
+): Promise<[TourStop, Commit]> {
   const cfg = config || await readTourConfig();
+
+  // Sort in ascending path length order so we always choose the longest path
+  const paths = Object.entries(cfg).sort((a, b) => a[1].length - b[1].length);
+
+  // Find appropriate repo and relative path, create tour stop
   let repository: string | null = null;
   let relPath: string | null = null;
-  Object.entries(cfg).forEach(([repo, path]) => {
+  let repoPath: string | null = null;
+  for (const entry of paths) {
+    const repo = entry[0];
+    const path = entry[1];
     if (stop.absPath.startsWith(path)) {
       repository = repo;
       relPath = pathutil.relative(path, stop.absPath);
+      repoPath = path;
+      break;
     }
-  });
-  if (repository === null || relPath === null) {
+  }
+  if (repository === null || relPath === null || repoPath === null) {
     throw new TouristError("AbstractionFailed");
   }
-  return {
+  const tourStop = {
     body: stop.body,
     column: stop.column,
     line: stop.line,
@@ -92,6 +111,33 @@ async function abstractStop(
     repository,
     title: stop.title,
   };
+
+  // Find the current commit of the found repository
+  const commit: Commit =
+    await Repository.open(repoPath).then((r) => r.getHeadCommit());
+
+  return [tourStop, commit];
+}
+
+async function abstractAndUpdateCommit(
+  tf: TourFile,
+  stop: AbsoluteTourStop,
+  config: Config | null,
+): Promise<TourStop> {
+  const [relStop, gitCommit] = await abstractStop(stop, config);
+  const repoState =
+    tf.repositories.find((st) => st.repository === relStop.repository);
+  if (repoState) {
+    if (repoState.commit !== gitCommit.sha()) {
+      throw new TouristError("CommitMismatch");
+    }
+  } else {
+    tf.repositories.push({
+      commit: gitCommit.sha(),
+      repository: relStop.repository,
+    });
+  }
+  return relStop;
 }
 
 /* Tourist Operations */
@@ -113,7 +159,7 @@ async function add(
   config: Config | null = null,
 ) {
   const tf = await readTourFile(path);
-  const relStop = await abstractStop(stop, config);
+  const relStop = await abstractAndUpdateCommit(tf, stop, config);
   if (index !== null) {
     tf.stops.splice(index, 0, relStop);
   } else {
@@ -150,7 +196,7 @@ async function move(
   stop.absPath = stopPos.absPath;
   stop.column = stopPos.column;
   stop.line = stopPos.line;
-  tf.stops[index] = await abstractStop(stop, config);
+  tf.stops[index] = await abstractAndUpdateCommit(tf, stop, config);
   await writeTourFile(path, tf);
 }
 
@@ -188,4 +234,24 @@ async function scramble(path: string = "tour.json", indices: number[]) {
 
 async function dump(path: string = "tour.json"): Promise<TourFile> {
   return await readTourFile(path);
+}
+
+async function mapConfig(repo: string, path: string) {
+  let config;
+  try { config = await readTourConfig(); } catch (_) { config = {} as Config; }
+  if (Object.values(config).includes(path)) {
+    throw new TouristError("MultipleMaps");
+  }
+  config[repo] = path;
+  await writeTourConfig(config);
+}
+
+async function unmapConfig(repo: string) {
+  try {
+    const config = await readTourConfig();
+    delete config[repo];
+    await writeTourConfig(config);
+  } catch (_) {
+    return;
+  }
 }
