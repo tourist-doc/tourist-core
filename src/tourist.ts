@@ -7,9 +7,7 @@ import {
   AbsoluteTourStop,
   Config,
   Tour,
-  TourError,
-  TourFile,
-  TourStop,
+  TourError, TourFile, TourStop,
   TourStopEdit,
   TourStopPos,
 } from "./types";
@@ -115,6 +113,9 @@ async function abstractStop(
   // Find the current commit of the found repository
   const commit: Commit =
     await Repository.open(repoPath).then((r) => r.getHeadCommit());
+  if (!commit) {
+    throw new TouristError("NotRepo");
+  }
 
   return [tourStop, commit];
 }
@@ -216,13 +217,15 @@ async function resolve(
 
 async function check(path: string = "tour.json"): Promise<TourError[]> {
   const tf = await readTourFile(path);
-  // TODO: Finish
+  // TODO: Make sure all repos have mappings, are checked out
+  // TODO: Verify that all files/lines exist
   return tf.version === "1.0.0" ? [] : [{ msg: "Bad version" }];
 }
 
 async function refresh(path: string = "tour.json") {
   const tf = await readTourFile(path);
-  // TODO: Finish
+  // TODO: Make sure all repos have mappings, identify commit differences
+  // TODO: For each file, try to update position based on line differences
   await writeTourFile(path, tf);
 }
 

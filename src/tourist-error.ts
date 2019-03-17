@@ -6,7 +6,8 @@ export type ErrorCase =
   | "AbstractionFailed"
   | "NoConfig"
   | "CommitMismatch"
-  | "MultipleMaps";
+  | "MultipleMaps"
+  | "NotRepo";
 
 export class TouristError extends Error {
   constructor(err: ErrorCase) {
