@@ -1,6 +1,4 @@
-export interface Config {
-  [key: string]: string;
-}
+import { RepoVersion } from "./version-provider/version-provider";
 
 export interface TourStop {
   body?: string;
@@ -31,7 +29,7 @@ export interface TourStopEdit {
 }
 
 export interface RepoState {
-  commit: string;
+  commit: RepoVersion;
   repository: string;
 }
 
@@ -49,4 +47,8 @@ export interface Tour {
 
 export interface TourError {
   msg: string;
+}
+
+export interface RepoIndex {
+  [key: string]: string;
 }
