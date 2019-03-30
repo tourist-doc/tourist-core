@@ -1,5 +1,4 @@
 import af from "async-file";
-import * as err from "./tourist-error";
 import {
   AbsoluteTourStop,
   RepoIndex,
@@ -67,7 +66,10 @@ export class Tourist {
       tf.repositories.find((st) => st.repository === relStop.repository);
 
     if (repoState && !repoState.commit.equals(version)) {
-      throw new err.CommitMismatchError();
+      throw new Error(
+        "Mismatched commits -- please check out an appropriate version of " +
+        "this repository.",
+      );
     } else if (repoState) {
       repoState.commit = version;
     } else {
@@ -171,9 +173,14 @@ export class Tourist {
    */
   public async refresh(tf: TourFile) {
     for (const stop of tf.stops) {
-      const repoState =
-        tf.repositories.find((st) => st.repository === stop.repository);
-      if (!repoState) { throw new err.NotRepoError(); }
+      const repoState = tf.repositories.find((st) =>
+        st.repository === stop.repository,
+      );
+      if (!repoState) {
+        throw new Error(
+          `No version available for repository ${stop.repository}.`,
+        );
+      }
       const repoPath = this.getRepoPath(repoState.repository);
 
       const changes = await this.versionProvider.getChangesForFile(
@@ -224,7 +231,7 @@ export class Tourist {
       const json = await af.readFile(path);
       return JSON.parse(json);
     } catch (_) {
-      throw new err.ReadFailureError();
+      throw new Error("Unable to read tour file.");
     }
   }
 
@@ -239,7 +246,7 @@ export class Tourist {
     try {
       return await af.writeFile(path, JSON.stringify(tf, null, 2));
     } catch (_) {
-      throw new err.WriteFailureError();
+      throw new Error("Unable to write tour file.");
     }
   }
 
@@ -308,7 +315,11 @@ export class Tourist {
   ): Promise<AbsoluteTourStop> {
     const relPath = new RelativePath(stop.repository, stop.relPath);
     const absPath = relPath.toAbsolutePath(this.config);
-    if (!absPath) { throw new err.NotRepoError(); }
+    if (!absPath) {
+      throw new Error(
+        `No available mapping for repository ${stop.repository}.`,
+      );
+    }
     return {
       absPath: absPath.path,
       body: stop.body,
@@ -323,7 +334,9 @@ export class Tourist {
   ): Promise<[TourStop, RepoVersion]> {
     const absPath = new AbsolutePath(stop.absPath);
     const relPath = absPath.toRelativePath(this.config);
-    if (!relPath) { throw new err.AbstractionFailedError(); }
+    if (!relPath) {
+      throw new Error(`Unable to abstract path ${stop.absPath}.`);
+    }
 
     const tourStop = {
       body: stop.body,
@@ -342,7 +355,7 @@ export class Tourist {
 
   private getRepoPath(repo: string): AbsolutePath {
     const path = this.config[repo];
-    if (!path) { throw new err.NotRepoError(); }
+    if (!path) { throw new Error(`No available path for repository ${repo}.`); }
     return new AbsolutePath(path);
   }
 }

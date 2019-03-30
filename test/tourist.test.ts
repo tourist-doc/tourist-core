@@ -5,7 +5,6 @@ import { suite, test } from "mocha";
 import os from "os";
 import * as pathutil from "path";
 import { AbsoluteTourStop, Tourist } from "..";
-import * as err from "../src/tourist-error";
 import { MockProvider } from "./mock-provider";
 import { GitProvider } from "../src/version-provider/git-provider";
 
@@ -203,6 +202,6 @@ suite("tourist", () => {
     provider.counter++;  // simulate a new commit between adds
 
     expect(tourist.add(tf, stop2, null))
-      .to.eventually.be.rejectedWith(err.CommitMismatchError);
+      .to.eventually.be.rejectedWith(/CommitMismatch/);
   });
 });

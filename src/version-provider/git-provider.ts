@@ -1,5 +1,4 @@
 import { Commit, Diff, Repository } from "nodegit";
-import * as err from "../tourist-error";
 import {
   FileChanges,
   RepoVersion,
@@ -22,9 +21,11 @@ export class GitVersion implements RepoVersion {
 
 export class GitProvider implements VersionProvider {
   public async getCurrentVersion(repoPath: AbsolutePath): Promise<RepoVersion> {
-    const commit: Commit =
-      await Repository.open(repoPath.path).then((r) => r.getHeadCommit());
-    if (!commit) { throw new err.NotRepoError(); }
+    const commit: Commit = await Repository.open(repoPath.path)
+      .then((r) => r.getHeadCommit())
+      .catch((_) => {
+        throw new Error(`Problem finding HEAD for ${repoPath}.`);
+      });
     return new GitVersion(commit.sha());
   }
 
