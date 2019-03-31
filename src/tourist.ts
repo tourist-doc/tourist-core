@@ -9,27 +9,40 @@ import {
 } from "./types";
 import {
   computeLineDelta,
-  RepoVersion,
-  VersionProvider,
+  StableVersion,
 } from "./version-provider/version-provider";
 import { RelativePath, AbsolutePath } from "./paths";
-import { GitProvider } from "./version-provider/git-provider";
+import { GitVersion } from "./version-provider/git-version";
+
+export default {
+  use,
+};
+
+const versionOptions: {
+  [key: string]: (repoPath: AbsolutePath) => Promise<StableVersion>,
+} = {
+  git: (repoPath) => GitVersion.fromCurrentVersion(repoPath),
+};
+
+function use(
+  key: string,
+  versionFactory: (repoPath: AbsolutePath) => Promise<StableVersion>,
+) {
+  versionOptions[key] = versionFactory;
+}
+
+export async function getCurrentVersion(
+  repoPath: AbsolutePath,
+  versionMode: string,
+): Promise<StableVersion> {
+  return versionOptions[versionMode](repoPath);
+}
 
 export class Tourist {
-
-  /**
-   * Static constructor for Tourist using `GitProvider`.
-   */
-  public static usingGit(): Tourist {
-    return new Tourist(new GitProvider());
-  }
-
   private config: RepoIndex;
-  private versionProvider: VersionProvider;
 
-  constructor(versionProvider: VersionProvider) {
+  constructor() {
     this.config = {};
-    this.versionProvider = versionProvider;
   }
 
   /**
@@ -55,17 +68,21 @@ export class Tourist {
    *  appended to the end. If the index is greater than the length of the list,
    *  the stop is added at the end. A negative index counts from the end of the
    *  list.
+   * @param versionMode Here be dragons. Don't mess with this unless you really
+   *  know you want to. This will be used down the line to allow for more
+   *  supported version providers, but for now git is the only one.
    */
   public async add(
     tf: TourFile,
     stop: AbsoluteTourStop,
     index: number | null = null,
+    versionMode: string = "git",
   ) {
     // Make sure file exists and line is valid (might throw error)
     this.verifyLocation(new AbsolutePath(stop.absPath), stop.line);
 
     // Get relative stop, current version of the repo (might throw error)
-    const [relStop, version] = await this.abstractStop(stop);
+    const [relStop, version] = await this.abstractStop(stop, versionMode);
 
     // Find the appropriate repo version in the tour file
     const repoState = tf.repositories
@@ -77,8 +94,9 @@ export class Tourist {
     } else if (!repoState) {
       // Repo not versioned, add version
       tf.repositories.push({
-        version,
         repository: relStop.repository,
+        version,
+        versionMode,
       });
     }
 
@@ -129,15 +147,23 @@ export class Tourist {
    * @param index The index of the stop to be removed. A negative index counts
    *  from the end of the list.
    * @param stopPos A delta to be applied to the stop.
+   * @param versionMode Here be dragons. Don't mess with this unless you really
+   *  know you want to. This will be used down the line to allow for more
+   *  supported version providers, but for now git is the only one.
    * @throws Throws an error if the `index` is out of bounds.
    */
-  public async move(tf: TourFile, index: number, stopPos: TourStopPos) {
+  public async move(
+    tf: TourFile,
+    index: number,
+    stopPos: TourStopPos,
+    versionMode: string = "git",
+  ) {
     if (index >= tf.stops.length) { throw new Error("Index out of bounds."); }
     const stop = await this.resolveStop(tf.stops[index]);
     stop.absPath = stopPos.absPath;
     stop.line = stopPos.line;
     await this.remove(tf, index);
-    await this.add(tf, stop, index);
+    await this.add(tf, stop, index, versionMode);
   }
 
   /**
@@ -220,8 +246,7 @@ export class Tourist {
       const repoPath = this.getRepoPath(repoState.repository);
 
       // Compute changes to the file
-      const changes = await this.versionProvider.getChangesForFile(
-        repoState.version,
+      const changes = await repoState.version.getChangesForFile(
         new RelativePath(stop.repository, stop.relPath),
         repoPath,
       );
@@ -237,7 +262,7 @@ export class Tourist {
         stop.relPath = "";
       }
       repoState.version =
-        await this.versionProvider.getCurrentVersion(repoPath);
+        await getCurrentVersion(repoPath, repoState.versionMode);
     }
   }
 
@@ -309,16 +334,7 @@ export class Tourist {
    * Serializes this tourist instance to a string.
    */
   public serialize(): string {
-    let provider: string;
-    if (this.versionProvider instanceof GitProvider) {
-      provider = "git";
-    } else {
-      throw new Error("Serialization not supported by provider.");
-    }
-    return JSON.stringify({
-      provider,
-      config: this.config,
-    });
+    return JSON.stringify(this.config);
   }
 
   /**
@@ -328,19 +344,13 @@ export class Tourist {
    */
   // tslint:disable-next-line: member-ordering
   public static deserialize(json: string): Tourist {
-    let tourist: Tourist;
-    let obj: { provider: string, config: RepoIndex };
+    let config: RepoIndex;
     try {
-      obj = JSON.parse(json);
+      config = JSON.parse(json);
     } catch (_) {
       throw new Error("Invalid JSON string.");
     }
-    const { provider, config } = obj;
-    if (provider === "git") {
-      tourist = new Tourist(new GitProvider());
-    } else {
-      throw new Error("Deserialization not supported by provider.");
-    }
+    const tourist = new Tourist();
     tourist.config = config;
     return tourist;
   }
@@ -378,7 +388,8 @@ export class Tourist {
 
   private async abstractStop(
     stop: AbsoluteTourStop,
-  ): Promise<[TourStop, RepoVersion]> {
+    versionMode: string,
+  ): Promise<[TourStop, StableVersion]> {
     const absPath = new AbsolutePath(stop.absPath);
     const relPath = absPath.toRelativePath(this.config);
     if (!relPath) {
@@ -394,7 +405,7 @@ export class Tourist {
     };
 
     const repoPath = this.getRepoPath(relPath.repository);
-    const version = await this.versionProvider.getCurrentVersion(repoPath);
+    const version = await getCurrentVersion(repoPath, versionMode);
 
     return [tourStop, version];
   }

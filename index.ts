@@ -1,3 +1,5 @@
+import tourist from "./src/tourist";
+
 export {
   AbsoluteTourStop,
   RepoIndex,
@@ -9,3 +11,7 @@ export {
 } from "./src/types";
 
 export { Tourist } from "./src/tourist";
+
+export default {
+  use: tourist.use,
+};

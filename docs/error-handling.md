@@ -40,7 +40,5 @@ Method | Error Case | Library Behavior | Extension Behavior
 
 - **Tourist State IO**
   - `serialize`
-    - Serialization not supported by provider.
   - `deserialize`
     - Invalid JSON string.
-    - Deserialization not supported by provider.

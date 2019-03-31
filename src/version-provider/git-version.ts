@@ -1,45 +1,37 @@
 import { Commit, Diff, Repository } from "nodegit";
 import {
   FileChanges,
-  RepoVersion,
-  VersionProvider,
+  StableVersion,
 } from "./version-provider";
 import { RelativePath, AbsolutePath } from "../paths";
 
-export class GitVersion implements RepoVersion {
+export class GitVersion implements StableVersion {
+  public static async fromCurrentVersion(
+    repoPath: AbsolutePath,
+  ): Promise<GitVersion> {
+    const currCommit: Commit = await Repository.open(repoPath.path)
+      .then((r) => r.getHeadCommit())
+      .catch((_) => {
+        throw new Error(`Problem finding HEAD for ${repoPath.path}.`);
+      });
+    return new GitVersion(currCommit.sha());
+  }
+
   public kind: "git" = "git";
   public commit: string;
+
   constructor(commit: string) {
     this.commit = commit;
   }
 
-  public equals(other: RepoVersion): boolean {
-    if (other.kind !== "git") { return false; }
-    return (other as GitVersion).commit === this.commit;
-  }
-}
-
-export class GitProvider implements VersionProvider {
-  public async getCurrentVersion(repoPath: AbsolutePath): Promise<RepoVersion> {
-    const commit: Commit = await Repository.open(repoPath.path)
-      .then((r) => r.getHeadCommit())
-      .catch((_) => {
-        throw new Error(`Problem finding HEAD for ${repoPath}.`);
-      });
-    return new GitVersion(commit.sha());
-  }
-
   public async getChangesForFile(
-    version: RepoVersion,
     path: RelativePath,
     repoPath: AbsolutePath,
   ): Promise<FileChanges | null> {
-    if (version.kind !== "git") { return null; }
-
     const repository = await Repository.open(repoPath.path);
 
     const oldTree =
-      await Commit.lookup(repository, (version as GitVersion).commit)
+      await Commit.lookup(repository, this.commit)
         .then((commit: Commit) => commit.getTree());
     const newTree = await repository.getHeadCommit()
       .then((commit: Commit) => commit.getTree());
@@ -84,5 +76,10 @@ export class GitProvider implements VersionProvider {
     }
 
     return { moves, additions, deletions, name: patch.newFile().path() };
+  }
+
+  public equals(other: StableVersion): boolean {
+    if (other.kind !== "git") { return false; }
+    return (other as GitVersion).commit === this.commit;
   }
 }

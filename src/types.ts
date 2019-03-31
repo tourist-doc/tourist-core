@@ -1,4 +1,4 @@
-import { RepoVersion } from "./version-provider/version-provider";
+import { StableVersion } from "./version-provider/version-provider";
 
 export interface TourStop {
   body?: string;
@@ -26,8 +26,9 @@ export interface TourStopEdit {
 }
 
 export interface RepoState {
-  version: RepoVersion;
   repository: string;
+  version: StableVersion;
+  versionMode: string;
 }
 
 export interface TourFile {

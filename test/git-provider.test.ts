@@ -5,8 +5,9 @@ import fs from "fs";
 import os from "os";
 import * as pathutil from "path";
 import { Repository, Signature, Oid, Reference } from "nodegit";
-import { GitProvider, GitVersion } from "../src/version-provider/git-provider";
+import { GitVersion } from "../src/version-provider/git-version";
 import { AbsolutePath, RelativePath } from "../src/paths";
+import { getCurrentVersion } from "../src/tourist";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -15,8 +16,6 @@ const outputDir = pathutil.join(os.tmpdir(), "tourist-test-out");
 const testDataDir = pathutil.join(__dirname, "data");
 const repoDir = pathutil.join(outputDir, "repo");
 const signature = Signature.now("Some Guy", "someguy@gmail.com");
-
-let vp: GitProvider;
 
 function deleteFolderRecursive(path: string) {
   if (fs.existsSync(path)) {
@@ -45,7 +44,6 @@ suite("git-provider", () => {
 
   before("make sure we're in a clean state", () => {
     deleteFolderRecursive(outputDir);
-    vp = new GitProvider();
   });
 
   after("make sure we clean up", () => {
@@ -68,26 +66,26 @@ suite("git-provider", () => {
   test("version kind is correct", async () => {
     fs.writeFileSync(file, "Hello, world!");
     await commitToRepo([fileName], "Initial commit");
-    const version = await vp.getCurrentVersion(new AbsolutePath(repoDir));
+    const version = await getCurrentVersion(new AbsolutePath(repoDir), "git");
     expect(version.kind).to.equal("git");
   });
 
   test("type equal in same commit", async () => {
     fs.writeFileSync(file, "Hello, world!");
     await commitToRepo([fileName], "Initial commit");
-    const version1 = await vp.getCurrentVersion(new AbsolutePath(repoDir));
+    const version1 = await getCurrentVersion(new AbsolutePath(repoDir), "git");
     fs.writeFileSync(file, "Hello, world!\nHello world again!");
-    const version2 = await vp.getCurrentVersion(new AbsolutePath(repoDir));
+    const version2 = await getCurrentVersion(new AbsolutePath(repoDir), "git");
     expect(version1.equals(version2));
   });
 
   test("type not equal in different commits", async () => {
     fs.writeFileSync(file, "Hello, world!");
     await commitToRepo([fileName], "Initial commit");
-    const version1 = await vp.getCurrentVersion(new AbsolutePath(repoDir));
+    const version1 = await getCurrentVersion(new AbsolutePath(repoDir), "git");
     fs.writeFileSync(file, "Hello, world!\nHello world again!");
     await commitToRepo([fileName], "Second commit");
-    const version2 = await vp.getCurrentVersion(new AbsolutePath(repoDir));
+    const version2 = await getCurrentVersion(new AbsolutePath(repoDir), "git");
     // tslint:disable-next-line: no-unused-expression
     expect(version1.equals(version2)).to.be.false;
   });
@@ -98,8 +96,7 @@ suite("git-provider", () => {
     fs.writeFileSync(file, "Line before\nHello, world!\nLine after");
     await commitToRepo([fileName], "Second commit");
 
-    const changes = await vp.getChangesForFile(
-      new GitVersion(commit.tostrS()),
+    const changes = await new GitVersion(commit.tostrS()).getChangesForFile(
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
     );
@@ -117,8 +114,7 @@ suite("git-provider", () => {
     fs.writeFileSync(file, contents.join("\n"));
     await commitToRepo([fileName], "Second commit");
 
-    const changes = await vp.getChangesForFile(
-      new GitVersion(commit.tostrS()),
+    const changes = await new GitVersion(commit.tostrS()).getChangesForFile(
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
     );
@@ -138,8 +134,7 @@ suite("git-provider", () => {
     );
     await commitToRepo([fileName], "Second commit");
 
-    const changes = await vp.getChangesForFile(
-      new GitVersion(commit.tostrS()),
+    const changes = await new GitVersion(commit.tostrS()).getChangesForFile(
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
     );
@@ -172,8 +167,7 @@ suite("git-provider", () => {
       [parent],
     );
 
-    const changes = await vp.getChangesForFile(
-      new GitVersion(commit.tostrS()),
+    const changes = await new GitVersion(commit.tostrS()).getChangesForFile(
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
     );

@@ -1,8 +1,12 @@
 import { AbsolutePath, RelativePath } from "../paths";
 
-export interface RepoVersion {
+export interface StableVersion {
   kind: string;
-  equals(other: RepoVersion): boolean;
+  getChangesForFile(
+    path: RelativePath,
+    repoPath: AbsolutePath,
+  ): Promise<FileChanges | null>;
+  equals(other: StableVersion): boolean;
 }
 
 export interface FileChanges {
@@ -26,13 +30,4 @@ export function computeLineDelta(
     if (add < line) { line++; } else { break; }
   }
   return line;
-}
-
-export interface VersionProvider {
-  getCurrentVersion(repoPath: AbsolutePath): Promise<RepoVersion>;
-  getChangesForFile(
-    version: RepoVersion,
-    path: RelativePath,
-    repoPath: AbsolutePath,
-  ): Promise<FileChanges | null>;
 }

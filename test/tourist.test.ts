@@ -4,16 +4,19 @@ import fs from "fs";
 import { suite, test } from "mocha";
 import os from "os";
 import * as pathutil from "path";
-import { AbsoluteTourStop, Tourist } from "..";
-import { MockProvider } from "./mock-provider";
-import { GitProvider } from "../src/version-provider/git-provider";
+import touristModule, { AbsoluteTourStop, Tourist } from "..";
+import { MockVersion } from "./mock-version";
+
+touristModule.use(
+  "mock", (repoPath) => MockVersion.fromCurrentVersion(repoPath),
+);
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
 
 const outputDir = pathutil.join(os.tmpdir(), "tourist-test-out");
 const repoDir = pathutil.join(outputDir, "repo");
-const tourist = new Tourist(new MockProvider(outputDir));
+const tourist = new Tourist();
 tourist.mapConfig("repo", repoDir);
 
 function deleteFolderRecursive(path: string) {
@@ -56,7 +59,7 @@ suite("tourist", () => {
   });
 
   test("serde", async () => {
-    const oldTourist = new Tourist(new GitProvider());
+    const oldTourist = new Tourist();
     oldTourist.mapConfig("hello", "world");
     const json = oldTourist.serialize();
     const newTourist = Tourist.deserialize(json);
@@ -76,7 +79,7 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null);
+    await tourist.add(tf, stop, null, "mock");
     const tour = await tourist.resolve(tf);
 
     expect(tour.stops[0]).to.deep.equal(stop);
@@ -95,7 +98,7 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null);
+    await tourist.add(tf, stop, null, "mock");
     await tourist.remove(tf, 0);
     const tour = await tourist.resolve(tf);
 
@@ -114,7 +117,7 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null);
+    await tourist.add(tf, stop, null, "mock");
     await tourist.edit(tf, 0, { body: "Edited body", title: "Edited title" });
     const tour = await tourist.resolve(tf);
 
@@ -136,11 +139,12 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null);
+    await tourist.add(tf, stop, null, "mock");
     await tourist.move(
       tf,
       0,
       { absPath: file, line: 3 },
+      "mock",
     );
     const tour = await tourist.resolve(tf);
 
@@ -171,7 +175,7 @@ suite("tourist", () => {
 
     const tf = await tourist.init();
     for (const stop of stops) {
-      await tourist.add(tf, stop, null);
+      await tourist.add(tf, stop, null, "mock");
     }
     await tourist.scramble(tf, [1, 2, 0]);
     const tour = await tourist.resolve(tf);
@@ -186,7 +190,6 @@ suite("tourist", () => {
     fs.writeFileSync(file1, "Hello, world!");
     const file2 = pathutil.join(repoDir, "my-file-2.txt");
     fs.writeFileSync(file2, "Hello, world!");
-    const provider: MockProvider = (tourist as any).versionProvider;
 
     const stop1 = {
       absPath: file1,
@@ -202,11 +205,14 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop1, null);
+    await tourist.add(tf, stop1, null, "mock");
 
-    provider.counter++;  // simulate a new commit between adds
+    // Simulate version changing independent of tourist
+    const mv = tf.repositories
+      .find((r) => r.repository === "repo")!.version as MockVersion;
+    mv.version++;
 
-    expect(tourist.add(tf, stop2, null))
+    expect(tourist.add(tf, stop2, null, "mock"))
       .to.eventually.be.rejectedWith(/Mismatched/);
   });
 });
