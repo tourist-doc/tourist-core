@@ -85,8 +85,8 @@ renaming, to the extent that git does.
 Occasionally, refreshing a stop won't be possible. This is usually because
 the target line (or even file) has been deleted or changed beyond
 recognition. In these cases, the tour stop would likely need to be completely
-changed anyway. When tourist fails to refresh a stop, the line and column of
-the stop are set to 0, and the file path is set to `""`.
+changed anyway. When tourist fails to refresh a stop, the line of the stop is
+set to 0, and the file path is set to `""`.
 
 At the end of the refresh, the commit in the tour file is updated to the
 currently checked out commit.

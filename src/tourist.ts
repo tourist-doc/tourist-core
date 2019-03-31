@@ -61,24 +61,28 @@ export class Tourist {
     stop: AbsoluteTourStop,
     index: number | null = null,
   ) {
-    const [relStop, version] = await this.abstractStop(stop);
-    const repoState =
-      tf.repositories.find((st) => st.repository === relStop.repository);
+    // Make sure file exists and line is valid (might throw error)
+    this.verifyLocation(new AbsolutePath(stop.absPath), stop.line);
 
-    if (repoState && !repoState.commit.equals(version)) {
-      throw new Error(
-        "Mismatched commits -- please check out an appropriate version of " +
-        "this repository.",
-      );
-    } else if (repoState) {
-      repoState.commit = version;
-    } else {
+    // Get relative stop, current version of the repo (might throw error)
+    const [relStop, version] = await this.abstractStop(stop);
+
+    // Find the appropriate repo version in the tour file
+    const repoState = tf.repositories
+      .find((st) => st.repository === relStop.repository);
+
+    if (repoState && !repoState.version.equals(version)) {
+      // Repo already versioned, versions disagree
+      throw new Error("Mismatched repository versions.");
+    } else if (!repoState) {
+      // Repo not versioned, add version
       tf.repositories.push({
-        commit: version,
+        version,
         repository: relStop.repository,
       });
     }
 
+    // Insert stop into list
     if (index !== null) {
       tf.stops.splice(index, 0, relStop);
     } else {
@@ -90,11 +94,12 @@ export class Tourist {
    * Removes a stop from the tour.
    *
    * @param tf
-   * @param index The index of the stop to be removed. If the index is greater
-   *  than the length of the list, nothing happens. A negative index counts from
-   *  the end of the list.
+   * @param index The index of the stop to be removed. A negative index counts
+   *  from the end of the list.
+   * @throws Throws an error if the `index` is out of bounds.
    */
   public async remove(tf: TourFile, index: number) {
+    if (index >= tf.stops.length) { throw new Error("Index out of bounds."); }
     tf.stops.splice(index, 1);
   }
 
@@ -102,7 +107,7 @@ export class Tourist {
    * Edit the title or body of a tour stop.
    *
    * @param tf
-   * @param index The index of the stop to be removed. A negative index counts
+   * @param index The index of the stop to be edited. A negative index counts
    *  from the end of the list.
    * @param stopEdit A delta to be applied to the stop.
    * @throws Throws an error if the `index` is out of bounds.
@@ -118,7 +123,7 @@ export class Tourist {
   }
 
   /**
-   * Move the path, line, or column of a tour stop.
+   * Move the path or line of a tour stop.
    *
    * @param tf
    * @param index The index of the stop to be removed. A negative index counts
@@ -127,9 +132,9 @@ export class Tourist {
    * @throws Throws an error if the `index` is out of bounds.
    */
   public async move(tf: TourFile, index: number, stopPos: TourStopPos) {
+    if (index >= tf.stops.length) { throw new Error("Index out of bounds."); }
     const stop = await this.resolveStop(tf.stops[index]);
     stop.absPath = stopPos.absPath;
-    stop.column = stopPos.column;
     stop.line = stopPos.line;
     await this.remove(tf, index);
     await this.add(tf, stop, index);
@@ -141,6 +146,8 @@ export class Tourist {
    * @param tf
    */
   public async resolve(tf: TourFile): Promise<Tour> {
+    if ((await this.check(tf)).length > 0) { throw new Error("check failed."); }
+
     const stops = await Promise.all(
       tf.stops.map((stop) => this.resolveStop(stop)),
     );
@@ -151,14 +158,43 @@ export class Tourist {
   }
 
   /**
-   * Checks a tour file for errors. TODO: Specify.
+   * Checks a tour file for errors.
    *
    * @param tf
    */
   public async check(tf: TourFile): Promise<TourError[]> {
-    // TODO: Make sure all repos have mappings, are checked out
-    // TODO: Verify that all files/lines exist
-    return tf.version === "1.0.0" ? [] : [{ msg: "Bad version" }];
+    // Verifies that:
+    // - Every stop has a repo that is mapped to both a directory and a version
+    // - Locations in stops are valid
+
+    const errors = [] as TourError[];
+
+    tf.stops.forEach(async (stop, i) => {
+      const rel = new RelativePath(stop.repository, stop.relPath);
+      const abs = rel.toAbsolutePath(this.config);
+      if (abs) {
+        try {
+          await this.verifyLocation(abs, stop.line);
+        } catch (e) {
+          errors.push({
+            msg: `Stop ${i}: ${e.message}.`,
+          });
+        }
+      } else {
+        errors.push({
+          msg: `Stop ${i}: Could not get concrete path.`,
+        });
+      }
+      const repoVersion = tf.repositories
+        .find((state) => state.repository === stop.repository);
+      if (!repoVersion) {
+        errors.push({
+          msg: `Stop ${i}: Repository ${stop.repository} has no version.`,
+        });
+      }
+    });
+
+    return errors;
   }
 
   /**
@@ -166,40 +202,42 @@ export class Tourist {
    *
    * If any files have been deleted or if the target lines themselves have been
    * deleted or completely changed, the stop will be left in an error state.
-   * Specifically, the line and column are set to 0 and the file name is set to
+   * Specifically, the line is set to 0 and the file name is set to
    * `""`.
    *
    * @param tf
    */
   public async refresh(tf: TourFile) {
+    if ((await this.check(tf)).length > 0) { throw new Error("check failed."); }
+
     for (const stop of tf.stops) {
       const repoState = tf.repositories.find((st) =>
         st.repository === stop.repository,
-      );
-      if (!repoState) {
-        throw new Error(
-          `No version available for repository ${stop.repository}.`,
-        );
-      }
+      )!;  // safe to bang here since `check` covers this case
+
+      // Find the path to the repo; this could throw an error but it won't
+      // because check passed
       const repoPath = this.getRepoPath(repoState.repository);
 
+      // Compute changes to the file
       const changes = await this.versionProvider.getChangesForFile(
-        repoState.commit,
+        repoState.version,
         new RelativePath(stop.repository, stop.relPath),
         repoPath,
       );
-      if (!changes) { return; }
+      if (!changes) { continue; }
 
+      // Apply the changes to the stop
       const newLine = computeLineDelta(changes, stop.line);
       if (newLine !== null) {
         stop.line = newLine;
         stop.relPath = changes.name;
       } else {
         stop.line = 0;
-        stop.column = 0;
         stop.relPath = "";
       }
-      repoState.commit = await this.versionProvider.getCurrentVersion(repoPath);
+      repoState.version =
+        await this.versionProvider.getCurrentVersion(repoPath);
     }
   }
 
@@ -213,40 +251,31 @@ export class Tourist {
    * @param indices Indices to use for scrambling.
    */
   public async scramble(tf: TourFile, indices: number[]) {
-    tf.stops = indices
-      .map((i) => i < tf.stops.length ? tf.stops[i] : null)
-      .filter((x) => x !== null)
-      .map((x) => x!);
-  }
-
-  /**
-   * Reads a tour file object from a file.
-   *
-   * @param path The path to save the file to.
-   * @throws Throws an error if there is an IO issue (e.g. `path` is not a valid
-   *  file).
-   */
-  public async readTourFile(path: string): Promise<TourFile> {
-    try {
-      const json = await af.readFile(path);
-      return JSON.parse(json);
-    } catch (_) {
-      throw new Error("Unable to read tour file.");
+    if (indices.some((i) => i >= tf.stops.length)) {
+      throw new Error("One or more indices out of bounds.");
     }
+    tf.stops = indices.map((i) => tf.stops[i]);
   }
 
   /**
-   * Writes a tour file object to a file.
+   * Creates a string representation of a tour file.
    *
-   * @param tf
-   * @param path The path to write the file to.
-   * @throws Throws an error if there is an IO issue.
+   * @param tf The tour file to serialize.
    */
-  public async writeTourFile(path: string, tf: TourFile) {
+  public serializeTourFile(tf: TourFile): string {
+    return JSON.stringify(tf, null, 2);
+  }
+
+  /**
+   * Create a tour file from a string representation.
+   *
+   * @param json String that encods a tour file.
+   */
+  public deserializeTourFile(json: string): TourFile {
     try {
-      return await af.writeFile(path, JSON.stringify(tf, null, 2));
+      return JSON.parse(json) as TourFile;
     } catch (_) {
-      throw new Error("Unable to write tour file.");
+      throw new Error("Invalid JSON string.");
     }
   }
 
@@ -284,7 +313,7 @@ export class Tourist {
     if (this.versionProvider instanceof GitProvider) {
       provider = "git";
     } else {
-      throw new Error("Serialization not supported for your provider.");
+      throw new Error("Serialization not supported by provider.");
     }
     return JSON.stringify({
       provider,
@@ -300,14 +329,33 @@ export class Tourist {
   // tslint:disable-next-line: member-ordering
   public static deserialize(json: string): Tourist {
     let tourist: Tourist;
-    const { provider, config } = JSON.parse(json);
+    let obj: { provider: string, config: RepoIndex };
+    try {
+      obj = JSON.parse(json);
+    } catch (_) {
+      throw new Error("Invalid JSON string.");
+    }
+    const { provider, config } = obj;
     if (provider === "git") {
       tourist = new Tourist(new GitProvider());
     } else {
-      throw new Error("Deserialization not supported for your provider.");
+      throw new Error("Deserialization not supported by provider.");
     }
     tourist.config = config;
     return tourist;
+  }
+
+  private async verifyLocation(path: AbsolutePath, line: number) {
+    const exists = await af.exists(path.path);
+    if (!exists) {
+      throw new Error(`Invalid location.File ${path.path} does not exist.`);
+    }
+    const data: Buffer = await af.readFile(path.path);
+    if (line > data.toString().split("\n").length) {
+      throw new Error(
+        `Invalid location.No line ${line} in file ${path.path}.`,
+      );
+    }
   }
 
   private async resolveStop(
@@ -323,7 +371,6 @@ export class Tourist {
     return {
       absPath: absPath.path,
       body: stop.body,
-      column: stop.column,
       line: stop.line,
       title: stop.title,
     };
@@ -335,12 +382,11 @@ export class Tourist {
     const absPath = new AbsolutePath(stop.absPath);
     const relPath = absPath.toRelativePath(this.config);
     if (!relPath) {
-      throw new Error(`Unable to abstract path ${stop.absPath}.`);
+      throw new Error(`No known repository for file ${absPath.path}.`);
     }
 
     const tourStop = {
       body: stop.body,
-      column: stop.column,
       line: stop.line,
       relPath: relPath.path,
       repository: relPath.repository,

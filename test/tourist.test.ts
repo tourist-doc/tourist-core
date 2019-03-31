@@ -66,11 +66,11 @@ suite("tourist", () => {
 
   test("add a tourstop", async () => {
     const file = pathutil.join(repoDir, "my-file.txt");
+    fs.writeFileSync(file, "Hello, world!");
 
     const stop = {
       absPath: file,
       body: "My test body",
-      column: 1,
       line: 1,
       title: "My test title",
     };
@@ -85,11 +85,11 @@ suite("tourist", () => {
 
   test("remove a tourstop", async () => {
     const file = pathutil.join(repoDir, "my-file.txt");
+    fs.writeFileSync(file, "Hello, world!");
 
     const stop = {
       absPath: file,
       body: "My test body",
-      column: 1,
       line: 1,
       title: "My test title",
     };
@@ -104,11 +104,11 @@ suite("tourist", () => {
 
   test("edit a tourstop", async () => {
     const file = pathutil.join(repoDir, "my-file.txt");
+    fs.writeFileSync(file, "Hello, world!");
 
     const stop = {
       absPath: file,
       body: "My test body",
-      column: 1,
       line: 1,
       title: "My test title",
     };
@@ -124,11 +124,13 @@ suite("tourist", () => {
 
   test("move a tourstop", async () => {
     const file = pathutil.join(repoDir, "my-file.txt");
+    fs.writeFileSync(
+      file, "Hello, world!\nHello, world!\nHello, world!",
+    );
 
     const stop = {
       absPath: file,
       body: "My test body",
-      column: 1,
       line: 1,
       title: "My test title",
     };
@@ -138,13 +140,12 @@ suite("tourist", () => {
     await tourist.move(
       tf,
       0,
-      { absPath: file, column: 12, line: 51 },
+      { absPath: file, line: 3 },
     );
     const tour = await tourist.resolve(tf);
 
     expect(tour.stops[0].absPath).to.equal(file);
-    expect(tour.stops[0].column).to.equal(12);
-    expect(tour.stops[0].line).to.equal(51);
+    expect(tour.stops[0].line).to.equal(3);
   });
 
   test("scramble tourstops", async () => {
@@ -153,13 +154,17 @@ suite("tourist", () => {
       pathutil.join(repoDir, "my-file-2.txt"),
       pathutil.join(repoDir, "my-file-3.txt"),
     ];
+    for (const file of files) {
+      fs.writeFileSync(
+        file, "Hello, world!\nHello, world!\nHello, world!",
+      );
+    }
     const stops: AbsoluteTourStop[] =
       ["snap", "crackle", "pop"].map((stopTitle, idx) => {
         return {
           absPath: files[idx],
           body: `Body of ${stopTitle}`,
-          column: idx,
-          line: idx,
+          line: idx + 1,
           title: stopTitle,
         };
       });
@@ -178,20 +183,20 @@ suite("tourist", () => {
 
   test("add must be done on same commit", async () => {
     const file1 = pathutil.join(repoDir, "my-file-1.txt");
+    fs.writeFileSync(file1, "Hello, world!");
     const file2 = pathutil.join(repoDir, "my-file-2.txt");
+    fs.writeFileSync(file2, "Hello, world!");
     const provider: MockProvider = (tourist as any).versionProvider;
 
     const stop1 = {
       absPath: file1,
       body: "My test body",
-      column: 1,
       line: 1,
       title: "My test title",
     };
     const stop2 = {
       absPath: file2,
       body: "My test body",
-      column: 1,
       line: 1,
       title: "My test title",
     };
@@ -202,6 +207,6 @@ suite("tourist", () => {
     provider.counter++;  // simulate a new commit between adds
 
     expect(tourist.add(tf, stop2, null))
-      .to.eventually.be.rejectedWith(/CommitMismatch/);
+      .to.eventually.be.rejectedWith(/Mismatched/);
   });
 });

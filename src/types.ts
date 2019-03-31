@@ -2,7 +2,6 @@ import { RepoVersion } from "./version-provider/version-provider";
 
 export interface TourStop {
   body?: string;
-  column: number;
   line: number;
   relPath: string;
   repository: string;
@@ -12,14 +11,12 @@ export interface TourStop {
 export interface AbsoluteTourStop {
   absPath: string;
   body?: string;
-  column: number;
   line: number;
   title: string;
 }
 
 export interface TourStopPos {
   absPath: string;
-  column: number;
   line: number;
 }
 
@@ -29,7 +26,7 @@ export interface TourStopEdit {
 }
 
 export interface RepoState {
-  commit: RepoVersion;
+  version: RepoVersion;
   repository: string;
 }
 
