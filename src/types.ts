@@ -1,4 +1,4 @@
-import { StableVersion } from "./version-provider/version-provider";
+import { StableVersion } from "./version-provider/stable-version";
 
 export interface TourStop {
   body?: string;

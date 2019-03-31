@@ -10,7 +10,7 @@ import {
 import {
   computeLineDelta,
   StableVersion,
-} from "./version-provider/version-provider";
+} from "./version-provider/stable-version";
 import { RelativePath, AbsolutePath } from "./paths";
 import { GitVersion } from "./version-provider/git-version";
 
@@ -18,16 +18,11 @@ export default {
   use,
 };
 
-const versionOptions: {
-  [key: string]: (repoPath: AbsolutePath) => Promise<StableVersion>,
-} = {
-  git: (repoPath) => GitVersion.fromCurrentVersion(repoPath),
+const versionOptions: { [key: string]: () => StableVersion } = {
+  git: () => new GitVersion(),
 };
 
-function use(
-  key: string,
-  versionFactory: (repoPath: AbsolutePath) => Promise<StableVersion>,
-) {
+function use(key: string, versionFactory: () => StableVersion) {
   versionOptions[key] = versionFactory;
 }
 
@@ -35,7 +30,9 @@ export async function getCurrentVersion(
   repoPath: AbsolutePath,
   versionMode: string,
 ): Promise<StableVersion> {
-  return versionOptions[versionMode](repoPath);
+  const version = versionOptions[versionMode]();
+  await version.setToCurrentVersion(repoPath);
+  return version;
 }
 
 export class Tourist {
@@ -288,6 +285,9 @@ export class Tourist {
    * @param tf The tour file to serialize.
    */
   public serializeTourFile(tf: TourFile): string {
+    tf.repositories.forEach((state) => {
+      state.version = state.version.serialize();
+    });
     return JSON.stringify(tf, null, 2);
   }
 
@@ -297,11 +297,18 @@ export class Tourist {
    * @param json String that encods a tour file.
    */
   public deserializeTourFile(json: string): TourFile {
+    let tf: TourFile;
     try {
-      return JSON.parse(json) as TourFile;
+      tf = JSON.parse(json) as TourFile;
     } catch (_) {
       throw new Error("Invalid JSON string.");
     }
+    tf.repositories.forEach((state: any) => {
+      const version = versionOptions[state.versionMode]();
+      version.setFromSerialized(state.version);
+      state.version = version;
+    });
+    return tf as TourFile;
   }
 
   /**

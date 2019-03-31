@@ -2,32 +2,46 @@ import { Commit, Diff, Repository } from "nodegit";
 import {
   FileChanges,
   StableVersion,
-} from "./version-provider";
+} from "./stable-version";
 import { RelativePath, AbsolutePath } from "../paths";
 
 export class GitVersion implements StableVersion {
-  public static async fromCurrentVersion(
-    repoPath: AbsolutePath,
-  ): Promise<GitVersion> {
-    const currCommit: Commit = await Repository.open(repoPath.path)
+  public kind: "git" = "git";
+  public commit: string | undefined;
+
+  public async setCommit(commit: string) {
+    this.commit = commit;
+  }
+
+  public serialize(): any {
+    return { kind: this.kind, commit: this.commit! };
+  }
+
+  public setFromSerialized(data: any) {
+    this.kind = data.kind;
+    this.commit = data.commit;
+  }
+
+  public async setToCurrentVersion(repoPath: AbsolutePath) {
+    const currCommit: Commit | null = await Repository.open(repoPath.path)
       .then((r) => r.getHeadCommit())
       .catch((_) => {
         throw new Error(`Problem finding HEAD for ${repoPath.path}.`);
       });
-    return new GitVersion(currCommit.sha());
-  }
-
-  public kind: "git" = "git";
-  public commit: string;
-
-  constructor(commit: string) {
-    this.commit = commit;
+    if (!currCommit) {
+      throw new Error(`Problem finding HEAD for ${repoPath.path}.`);
+    }
+    this.commit = currCommit.sha();
   }
 
   public async getChangesForFile(
     path: RelativePath,
     repoPath: AbsolutePath,
   ): Promise<FileChanges | null> {
+    if (!this.commit) {
+      throw new Error("No commit set for this version.");
+    }
+
     const repository = await Repository.open(repoPath.path);
 
     const oldTree =

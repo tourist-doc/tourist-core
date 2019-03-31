@@ -1,20 +1,22 @@
 import {
   StableVersion,
   FileChanges,
-} from "../src/version-provider/version-provider";
+} from "../src/version-provider/stable-version";
 import { AbsolutePath, RelativePath } from "../src/paths";
 
 export class MockVersion implements StableVersion {
-  public static async fromCurrentVersion(
-    { }: AbsolutePath,
-  ): Promise<MockVersion> {
-    return new MockVersion(0);
+  public kind: "mock" = "mock";
+  public version: number = 0;
+
+  public serialize(): any {
+    return {};
   }
 
-  public kind: "mock" = "mock";
-  public version: number;
-  constructor(version: number) {
-    this.version = version;
+  // tslint:disable-next-line: no-empty
+  public setFromSerialized({ }: any) { }
+
+  public async setToCurrentVersion({ }: AbsolutePath) {
+    this.version = 0;
   }
 
   public async getChangesForFile(

@@ -2,6 +2,9 @@ import { AbsolutePath, RelativePath } from "../paths";
 
 export interface StableVersion {
   kind: string;
+  serialize(): any;
+  setFromSerialized(data: any): void;
+  setToCurrentVersion(repoPath: AbsolutePath): Promise<void>;
   getChangesForFile(
     path: RelativePath,
     repoPath: AbsolutePath,

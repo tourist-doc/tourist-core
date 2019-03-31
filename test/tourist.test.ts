@@ -8,7 +8,7 @@ import touristModule, { AbsoluteTourStop, Tourist } from "..";
 import { MockVersion } from "./mock-version";
 
 touristModule.use(
-  "mock", (repoPath) => MockVersion.fromCurrentVersion(repoPath),
+  "mock", () => new MockVersion(),
 );
 
 chai.use(chaiAsPromised);

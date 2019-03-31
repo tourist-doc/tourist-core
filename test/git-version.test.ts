@@ -7,7 +7,7 @@ import * as pathutil from "path";
 import { Repository, Signature, Oid, Reference } from "nodegit";
 import { GitVersion } from "../src/version-provider/git-version";
 import { AbsolutePath, RelativePath } from "../src/paths";
-import { getCurrentVersion } from "../src/tourist";
+import { getCurrentVersion, Tourist } from "../src/tourist";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -96,7 +96,9 @@ suite("git-provider", () => {
     fs.writeFileSync(file, "Line before\nHello, world!\nLine after");
     await commitToRepo([fileName], "Second commit");
 
-    const changes = await new GitVersion(commit.tostrS()).getChangesForFile(
+    const version = new GitVersion();
+    version.setCommit(commit.tostrS());
+    const changes = await version.getChangesForFile(
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
     );
@@ -114,7 +116,9 @@ suite("git-provider", () => {
     fs.writeFileSync(file, contents.join("\n"));
     await commitToRepo([fileName], "Second commit");
 
-    const changes = await new GitVersion(commit.tostrS()).getChangesForFile(
+    const version = new GitVersion();
+    version.setCommit(commit.tostrS());
+    const changes = await version.getChangesForFile(
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
     );
@@ -134,7 +138,9 @@ suite("git-provider", () => {
     );
     await commitToRepo([fileName], "Second commit");
 
-    const changes = await new GitVersion(commit.tostrS()).getChangesForFile(
+    const version = new GitVersion();
+    version.setCommit(commit.tostrS());
+    const changes = await version.getChangesForFile(
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
     );
@@ -167,12 +173,50 @@ suite("git-provider", () => {
       [parent],
     );
 
-    const changes = await new GitVersion(commit.tostrS()).getChangesForFile(
+    const version = new GitVersion();
+    version.setCommit(commit.tostrS());
+    const changes = await version.getChangesForFile(
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
     );
 
     expect(changes).to.not.be.a("null");
     expect(changes!.name).to.equal("other-file.txt");
+  });
+
+  test("safe to serialize", async () => {
+    await commitToRepo([], "Initial commit");
+
+    const version = new GitVersion();
+    await version.setToCurrentVersion(new AbsolutePath(repoDir));
+    const newVersion = new GitVersion();
+    newVersion.setFromSerialized(version.serialize());
+    expect(version).to.deep.equal(newVersion);
+    expect(version.equals(newVersion));
+  });
+
+  test("serde git tour file", async () => {
+    fs.writeFileSync(file, "Hello, world!");
+    await commitToRepo([fileName], "Initial commit");
+
+    const tourist = new Tourist();
+    tourist.mapConfig("repo", repoDir);
+
+    const stop = {
+      absPath: file,
+      body: "My test body",
+      line: 1,
+      title: "My test title",
+    };
+
+    const tf = await tourist.init();
+    await tourist.add(tf, stop, null, "git");
+
+    let checkResults = await tourist.check(tf);
+    expect(checkResults.length).to.equal(0);
+
+    const newTf = tourist.deserializeTourFile(tourist.serializeTourFile(tf));
+    checkResults = await tourist.check(newTf);
+    expect(checkResults.length).to.equal(0);
   });
 });
