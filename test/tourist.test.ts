@@ -212,7 +212,10 @@ suite("tourist", () => {
       .find((r) => r.repository === "repo")!.version as MockVersion;
     mv.version++;
 
-    expect(tourist.add(tf, stop2, null, "mock"))
-      .to.eventually.be.rejectedWith(/Mismatched/);
+    try {
+      await tourist.add(tf, stop2, null, "mock");
+    } catch (e) {
+      expect(e.message).to.contain("Mismatched");
+    }
   });
 });

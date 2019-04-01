@@ -76,7 +76,7 @@ export class Tourist {
     versionMode: string = "git",
   ) {
     // Make sure file exists and line is valid (might throw error)
-    this.verifyLocation(new AbsolutePath(stop.absPath), stop.line);
+    await this.verifyLocation(new AbsolutePath(stop.absPath), stop.line);
 
     // Get relative stop, current version of the repo (might throw error)
     const [relStop, version] = await this.abstractStop(stop, versionMode);
@@ -192,30 +192,27 @@ export class Tourist {
 
     const errors = [] as TourError[];
 
-    tf.stops.forEach(async (stop, i) => {
+    await Promise.all(tf.stops.map(async (stop, i) => {
       const rel = new RelativePath(stop.repository, stop.relPath);
       const abs = rel.toAbsolutePath(this.config);
+
       if (abs) {
         try {
           await this.verifyLocation(abs, stop.line);
         } catch (e) {
-          errors.push({
-            msg: `Stop ${i}: ${e.message}.`,
-          });
+          errors.push({ msg: `Stop ${i}: ${e.message}` });
         }
       } else {
-        errors.push({
-          msg: `Stop ${i}: Could not get concrete path.`,
-        });
+        errors.push({ msg: `Stop ${i}: Could not get concrete path.` });
       }
       const repoVersion = tf.repositories
         .find((state) => state.repository === stop.repository);
       if (!repoVersion) {
         errors.push({
-          msg: `Stop ${i}: Repository ${stop.repository} has no version.`,
+          msg: `Stop ${i}: Repository ${stop.repository} has no version`,
         });
       }
-    });
+    }));
 
     return errors;
   }
@@ -231,15 +228,19 @@ export class Tourist {
    * @param tf
    */
   public async refresh(tf: TourFile) {
-    if ((await this.check(tf)).length > 0) { throw new Error("check failed."); }
-
     for (const stop of tf.stops) {
       const repoState = tf.repositories.find((st) =>
         st.repository === stop.repository,
-      )!;  // safe to bang here since `check` covers this case
+      );  // safe to bang here since `check` covers this case
 
-      // Find the path to the repo; this could throw an error but it won't
-      // because check passed
+      if (!repoState) {
+        throw new Error(
+          `No version available. Repository ${stop.repository} does not have` +
+          "a version mapping in the tour file.",
+        );
+      }
+
+      // Find the path to the repo
       const repoPath = this.getRepoPath(repoState.repository);
 
       // Compute changes to the file
@@ -258,8 +259,10 @@ export class Tourist {
         stop.line = 0;
         stop.relPath = "";
       }
-      repoState.version =
-        await getCurrentVersion(repoPath, repoState.versionMode);
+    }
+    for (const repo of tf.repositories) {
+      const repoPath = this.getRepoPath(repo.repository);
+      repo.version = await getCurrentVersion(repoPath, repo.versionMode);
     }
   }
 
@@ -363,15 +366,15 @@ export class Tourist {
   }
 
   private async verifyLocation(path: AbsolutePath, line: number) {
-    const exists = await af.exists(path.path);
-    if (!exists) {
-      throw new Error(`Invalid location.File ${path.path} does not exist.`);
-    }
-    const data: Buffer = await af.readFile(path.path);
-    if (line > data.toString().split("\n").length) {
-      throw new Error(
-        `Invalid location.No line ${line} in file ${path.path}.`,
-      );
+    try {
+      const data: Buffer = await af.readFile(path.path);
+      if (line > data.toString().split("\n").length) {
+        throw new Error(
+          `Invalid location. No line ${line} in ${path.path}.`,
+        );
+      }
+    } catch (e) {
+      throw new Error(`Invalid location. Could not read ${path.path}.`);
     }
   }
 
