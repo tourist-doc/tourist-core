@@ -57,6 +57,16 @@ export class Tourist {
   }
 
   /**
+   * Renames a tour.
+   *
+   * @param tf
+   * @param name The new name for the tour.
+   */
+  public async rename(tf: TourFile, name: string) {
+    tf.title = name;
+  }
+
+  /**
    * Adds a stop to the tour.
    *
    * @param tf

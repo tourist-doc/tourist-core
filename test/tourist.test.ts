@@ -67,6 +67,14 @@ suite("tourist", () => {
     expect(oldTourist.dumpConfig()).to.deep.equal(newTourist.dumpConfig());
   });
 
+  test("rename", async () => {
+    const tf = await tourist.init("A Tour");
+    expect(tf.title).to.equal("A Tour");
+
+    tourist.rename(tf, "New name!");
+    expect(tf.title).to.equal("New name!");
+  });
+
   test("add a tourstop", async () => {
     const file = pathutil.join(repoDir, "my-file.txt");
     fs.writeFileSync(file, "Hello, world!");
