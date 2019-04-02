@@ -6,6 +6,7 @@ import os from "os";
 import * as pathutil from "path";
 import touristModule, { AbsoluteTourStop, Tourist } from "..";
 import { MockVersion } from "./mock-version";
+import { isNotBroken } from "../src/types";
 
 touristModule.use(
   "mock", () => new MockVersion(),
@@ -156,8 +157,9 @@ suite("tourist", () => {
     );
     const tour = await tourist.resolve(tf);
 
-    expect(tour.stops[0].absPath).to.equal(file);
-    expect(tour.stops[0].line).to.equal(3);
+    expect(isNotBroken(tour.stops[0]));
+    expect((tour.stops[0] as AbsoluteTourStop).absPath).to.equal(file);
+    expect((tour.stops[0] as AbsoluteTourStop).line).to.equal(3);
   });
 
   test("scramble tourstops", async () => {

@@ -6,6 +6,8 @@ import {
   TourError, TourFile, TourStop,
   TourStopEdit,
   TourStopPos,
+  BrokenTourStop,
+  isNotBroken,
 } from "./types";
 import {
   computeLineDelta,
@@ -167,10 +169,14 @@ export class Tourist {
   ) {
     if (index >= tf.stops.length) { throw new Error("Index out of bounds."); }
     const stop = await this.resolveStop(tf.stops[index]);
-    stop.absPath = stopPos.absPath;
-    stop.line = stopPos.line;
-    await this.remove(tf, index);
-    await this.add(tf, stop, index, versionMode);
+    if (isNotBroken(stop)) {
+      stop.absPath = stopPos.absPath;
+      stop.line = stopPos.line;
+      await this.remove(tf, index);
+      await this.add(tf, stop, index, versionMode);
+    } else {
+      throw new Error("Could not resolve stop.");
+    }
   }
 
   /**
@@ -179,8 +185,6 @@ export class Tourist {
    * @param tf
    */
   public async resolve(tf: TourFile): Promise<Tour> {
-    if ((await this.check(tf)).length > 0) { throw new Error("check failed."); }
-
     const stops = await Promise.all(
       tf.stops.map((stop) => this.resolveStop(stop)),
     );
@@ -390,13 +394,11 @@ export class Tourist {
 
   private async resolveStop(
     stop: TourStop,
-  ): Promise<AbsoluteTourStop> {
+  ): Promise<AbsoluteTourStop | BrokenTourStop> {
     const relPath = new RelativePath(stop.repository, stop.relPath);
     const absPath = relPath.toAbsolutePath(this.config);
     if (!absPath) {
-      throw new Error(
-        `No available mapping for repository ${stop.repository}.`,
-      );
+      return { body: stop.body, title: stop.title };
     }
     return {
       absPath: absPath.path,

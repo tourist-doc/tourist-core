@@ -4,9 +4,9 @@
   "description": "An implementation of Tourist in node.js.",
   "main": "dist/index.js",
   "scripts": {
-    "test": "mocha --inline-diffs -c --require ts-node/register test/tourist.test.ts test/git-version.test.ts",
+    "test": "tsc && mocha --inline-diffs -c --require ts-node/register test/tourist.test.ts test/git-version.test.ts",
     "build": "tsc",
-    "exec": "tsc; node dist/src/main.js"
+    "exec": "tsc && node dist/src/main.js"
   },
   "author": "",
   "license": "MIT",

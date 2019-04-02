@@ -15,6 +15,17 @@ export interface AbsoluteTourStop {
   title: string;
 }
 
+export interface BrokenTourStop {
+  body?: string;
+  title: string;
+}
+
+export function isNotBroken(
+  obj: AbsoluteTourStop | BrokenTourStop,
+): obj is AbsoluteTourStop {
+  return (obj as AbsoluteTourStop).absPath !== undefined;
+}
+
 export interface TourStopPos {
   absPath: string;
   line: number;
@@ -39,7 +50,7 @@ export interface TourFile {
 }
 
 export interface Tour {
-  stops: AbsoluteTourStop[];
+  stops: Array<AbsoluteTourStop | BrokenTourStop>;
   title: string;
 }
 
