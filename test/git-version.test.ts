@@ -72,7 +72,7 @@ suite("git-provider", () => {
     fs.writeFileSync(file, "Hello, world!");
     await commitToRepo([fileName], "Initial commit");
     const version = await getCurrentVersion("git", new AbsolutePath(repoDir));
-    expect(version.kind).to.equal("git");
+    expect(version!.kind).to.equal("git");
   });
 
   test("type equal in same commit", async () => {
@@ -81,7 +81,7 @@ suite("git-provider", () => {
     const version1 = await getCurrentVersion("git", new AbsolutePath(repoDir));
     fs.writeFileSync(file, "Hello, world!\nHello world again!");
     const version2 = await getCurrentVersion("git", new AbsolutePath(repoDir));
-    expect(versionEq(version1, version2));
+    expect(versionEq(version1!, version2!));
   });
 
   test("type not equal in different commits", async () => {
@@ -92,7 +92,7 @@ suite("git-provider", () => {
     await commitToRepo([fileName], "Second commit");
     const version2 = await getCurrentVersion("git", new AbsolutePath(repoDir));
     // tslint:disable-next-line: no-unused-expression
-    expect(versionEq(version1, version2)).to.be.false;
+    expect(versionEq(version1!, version2!)).to.be.false;
   });
 
   test("files change correctly: small file", async () => {
@@ -195,7 +195,7 @@ suite("git-provider", () => {
     const version = await getCurrentVersion("git", new AbsolutePath(repoDir));
     const newVersion: StableVersion = JSON.parse(JSON.stringify(version));
     expect(version).to.deep.equal(newVersion);
-    expect(versionEq(newVersion, version));
+    expect(versionEq(newVersion, version!));
   });
 
   test("serde git tour file", async () => {

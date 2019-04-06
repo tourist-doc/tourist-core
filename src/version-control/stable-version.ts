@@ -15,9 +15,7 @@ export function computeLineDelta(
   if (changes.deletions.includes(line)) { return null; }
   if (changes.moves.has(line)) { return changes.moves.get(line)!; }
 
-  for (const rm of changes.deletions.sort()) {
-    if (rm < line) { line--; } else { break; }
-  }
+  line -= changes.deletions.length;
   for (const add of changes.additions.sort()) {
     if (add < line) { line++; } else { break; }
   }
@@ -46,7 +44,7 @@ export function validStableVersion(obj: any): obj is StableVersion {
 export async function getCurrentVersion(
   mode: string,
   path: AbsolutePath,
-): Promise<StableVersion> {
+): Promise<StableVersion | null> {
   switch (mode) {
     case "git":
       return await headCommit(path);

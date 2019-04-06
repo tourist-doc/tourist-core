@@ -57,10 +57,6 @@ export interface Tour {
   title: string;
 }
 
-export interface TourError {
-  msg: string;
-}
-
 export interface RepoIndex {
   [key: string]: string;
 }
@@ -100,5 +96,17 @@ export function validRepoState(obj: any): obj is RepoState {
     ].reduce((x, y) => x && y, true);
   } catch (_) {
     return false;
+  }
+}
+
+export class TouristError extends Error {
+  public code: number;
+  public message: string;
+
+  constructor(code: number, message: string) {
+    super(message);
+    Object.setPrototypeOf(this, TouristError.prototype);
+    this.code = code;
+    this.message = message;
   }
 }

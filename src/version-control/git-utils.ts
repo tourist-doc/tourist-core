@@ -7,16 +7,17 @@ import { RelativePath, AbsolutePath } from "../paths";
 
 export async function headCommit(
   repoPath: AbsolutePath,
-): Promise<StableVersion> {
-  const currCommit: Commit | null = await Repository.open(repoPath.path)
-    .then((r) => r.getHeadCommit())
-    .catch((_) => {
-      throw new Error(`Problem finding HEAD for ${repoPath.path}.`);
-    });
-  if (!currCommit) {
-    throw new Error(`Problem finding HEAD for ${repoPath.path}.`);
+): Promise<StableVersion | null> {
+  try {
+    const currCommit: Commit | null = await Repository.open(repoPath.path)
+      .then((r) => r.getHeadCommit());
+    if (!currCommit) {
+      return null;
+    }
+    return { kind: "git", commit: currCommit.sha() };
+  } catch (_) {
+    return null;
   }
-  return { kind: "git", commit: currCommit.sha() };
 }
 
 export async function gitDiffFile(

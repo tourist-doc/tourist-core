@@ -1,37 +1,66 @@
+# Error codes:
+- 0-99    : Operation input error
+  - 0, Index out of bounds.
+  - 1, One or more indices out of bounds.
+- 100-199 : Input validation error
+  - 100, Invalid location. Could not read {file}.
+  - 101, Invalid location. No line {line} in {file}.
+- 200-299 : External state error
+  - 200, Repository {repo} is not mapped to a path.
+  - 201, Path {path} is not mapped as a repository.
+  - 202, Could not get current version for repository {repo}.
+  - 203, Mismatched versions. Repository {repo} is checked out to the wrong
+         version.
+- 300-399 : Internal state error
+  - 300, No version for repository {repo}.
+- 400-499 : Serialization/deserialization error
+  - 400, Invalid JSON string.
+  - 401, Object is not a valid TourFile.
+
 # Error Cases
 
-As of now this document is *proscriptive* rather than *descriptive*; it
-describes the way we would like the library to behave, not necessarily how it
-does behave.
-
-Method | Error Case | Library Behavior | Extension Behavior
 - **Tour File Manipulation**
   - `init` (no failure cases)
   - `add`
-    - No known repository.
-    - Mismatched repository versions.
-    - Invalid location (file does not exist, or line not in file).
+    - 100, Invalid location. Could not read {file}.
+    - 101, Invalid location. No line {line} in {file}.
+    - 200, Repository {repo} is not mapped to a path.
+    - 201, Path {path} is not mapped as a repository.
+    - 202, Could not get current version for repository {repo}.
+    - 203, Mismatched versions. Repository {repo} is checked out to the wrong
+           version.
   - `remove`
-    - Index out of bounds.
+    - 0, Index out of bounds.
   - `edit`
-    - Index out of bounds.
+    - 0, Index out of bounds.
   - `move`
-    - Not in a known repository.
-    - Invalid location (file does not exist, or line not in file).
-    - Index out of bounds.
-    - Mismatched repository versions.
+    - 0, Index out of bounds.
+    - 100, Invalid location. Could not read {file}.
+    - 101, Invalid location. No line {line} in {file}.
+    - 201, Path {path} is not mapped as a repository.
+    - 202, Could not get current version for repository {repo}.
+    - 203, Mismatched versions. Repository {repo} is checked out to the wrong
+           version.
   - `resolve`
-    - `check` failed.
-  - TODO `check`
+    - 200, Repository {repo} is not mapped to a path.
+  - `check`
+    - 100, Invalid location. Could not read {file}.
+    - 101, Invalid location. No line {line} in {file}.
+    - 200, Repository {repo} is not mapped to a path.
+    - 203, Mismatched versions. Repository {repo} is checked out to the wrong
+           version.
+    - 300, No version for repository {repo}.
   - `refresh`
-    - `check` failed.
+    - 200, Repository {repo} is not mapped to a path.
+    - 300, No version for repository {repo}.
   - `scramble`
-    - One or more indices out of bounds.
+    - 1, One or more indices out of bounds.
 
 - **Tour File IO**
   - `serializeTourFile` (no error cases)
   - `deserializeTourFile`
-    - Invalid JSON string.
+    - 400, Invalid JSON string.
+    - 401, Object is not a valid TourFile.
 
 - **Tourist State Management**
   - `mapConfig` (no error cases)
@@ -41,4 +70,4 @@ Method | Error Case | Library Behavior | Extension Behavior
 - **Tourist State IO**
   - `serialize`
   - `deserialize`
-    - Invalid JSON string.
+    - 400, Invalid JSON string.
