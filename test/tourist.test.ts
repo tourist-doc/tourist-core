@@ -95,6 +95,27 @@ suite("tourist", () => {
     expect(tour.stops.length).to.equal(1);
   });
 
+  test("add two tourstops", async () => {
+    const file = pathutil.join(repoDir, "my-file.txt");
+    fs.writeFileSync(file, "Hello, world!");
+
+    const stop = {
+      absPath: file,
+      body: "My test body",
+      line: 1,
+      title: "My test title",
+    };
+
+    const tf = await tourist.init();
+    await tourist.add(tf, stop, null, "mock");
+    await tourist.resolve(tf);
+    await tourist.add(tf, stop, null, "mock");
+    const tour = await tourist.resolve(tf);
+
+    expect(tour.stops[1]).to.deep.equal(stop);
+    expect(tour.stops.length).to.equal(2);
+  });
+
   test("remove a tourstop", async () => {
     const file = pathutil.join(repoDir, "my-file.txt");
     fs.writeFileSync(file, "Hello, world!");

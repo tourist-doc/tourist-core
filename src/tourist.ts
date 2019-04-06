@@ -302,10 +302,19 @@ export class Tourist {
    * @param tf The tour file to serialize.
    */
   public serializeTourFile(tf: TourFile): string {
-    tf.repositories.forEach((state) => {
-      state.version = state.version.serialize();
-    });
-    return JSON.stringify(tf, null, 2);
+    const newTf = {
+      stops: tf.stops,
+      title: tf.title,
+      version: tf.version,
+      repositories: tf.repositories.map((state) => {
+        return {
+          repository: state.repository,
+          versionMode: state.versionMode,
+          version: state.version.serialize(),
+        };
+      }),
+    };
+    return JSON.stringify(newTf, null, 2);
   }
 
   /**

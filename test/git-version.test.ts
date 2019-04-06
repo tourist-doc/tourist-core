@@ -190,9 +190,11 @@ suite("git-provider", () => {
     const version = new GitVersion();
     await version.setToCurrentVersion(new AbsolutePath(repoDir));
     const newVersion = new GitVersion();
-    newVersion.setFromSerialized(version.serialize());
+    newVersion.setFromSerialized(
+      JSON.parse(JSON.stringify(version.serialize())),
+    );
     expect(version).to.deep.equal(newVersion);
-    expect(version.equals(newVersion));
+    expect(newVersion.equals(version));
   });
 
   test("serde git tour file", async () => {
@@ -218,5 +220,7 @@ suite("git-provider", () => {
     const newTf = tourist.deserializeTourFile(tourist.serializeTourFile(tf));
     checkResults = await tourist.check(newTf);
     expect(checkResults.length).to.equal(0);
+    expect(newTf.repositories[0].version.equals(tf.repositories[0].version));
+    expect(tf.repositories[0].version.equals(newTf.repositories[0].version));
   });
 });
