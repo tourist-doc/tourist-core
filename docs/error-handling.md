@@ -1,4 +1,5 @@
-# Error codes:
+# Error Code Breakdown
+
 - 0-99    : Operation input error
   - 0, Index out of bounds.
   - 1, One or more indices out of bounds.
@@ -17,7 +18,7 @@
   - 400, Invalid JSON string.
   - 401, Object is not a valid TourFile.
 
-# Error Cases
+# Error Cases by Operation
 
 - **Tour File Manipulation**
   - `init` (no failure cases)

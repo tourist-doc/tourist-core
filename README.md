@@ -35,15 +35,16 @@ Make sure you've `npm install`ed the appropriate dependencies.
 ## Library Usage
 
 The main way to interact with the Tourist library is via the `Tourist` class.
-Currently the only supported way to manage versioning is via `git`, so you can
-create a new Tourist instance with
 ```typescript
-const tourist = Tourist.usingGit();
+import { Tourist } from "tourist";
+const tourist = new Tourist();
 ```
 Alternatively, if you already have a serialized version of a tourist instance,
 you can construct a live instance with
 ```typescript
-const tourist = Tourist.deserialize(serializedInstance);
+const str = tourist.serialize();
+// ...
+const newTourist = Tourist.deserialize(str);
 ```
 
 Once you have a tourist instance, the first thing to do is set up some
@@ -86,7 +87,8 @@ Occasionally, refreshing a stop won't be possible. This is usually because
 the target line (or even file) has been deleted or changed beyond
 recognition. In these cases, the tour stop would likely need to be completely
 changed anyway. When tourist fails to refresh a stop, the line of the stop is
-set to 0, and the file path is set to `""`.
+set to 0, and the file path is set to `""`. When a broken stop like this is
+`resolve`d, the result will be a `BrokenStop` with just a title and a body.
 
 At the end of the refresh, the commit in the tour file is updated to the
 currently checked out commit.

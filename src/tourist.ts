@@ -63,6 +63,8 @@ export class Tourist {
    * @param versionMode Here be dragons. Don't mess with this unless you really
    *  know you want to. This will be used down the line to allow for more
    *  supported version providers, but for now git is the only one.
+   * @throws Error code(s): 100, 101, 200, 201, 202, 203
+   *  See the error-handling.md document for more information.
    */
   public async add(
     tf: TourFile,
@@ -110,7 +112,8 @@ export class Tourist {
    * @param tf
    * @param index The index of the stop to be removed. A negative index counts
    *  from the end of the list.
-   * @throws Throws an error if the `index` is out of bounds.
+   * @throws Error code(s): 0
+   *  See the error-handling.md document for more information.
    */
   public async remove(tf: TourFile, index: number) {
     if (index >= tf.stops.length) {
@@ -126,7 +129,8 @@ export class Tourist {
    * @param index The index of the stop to be edited. A negative index counts
    *  from the end of the list.
    * @param stopEdit A delta to be applied to the stop.
-   * @throws Throws an error if the `index` is out of bounds.
+   * @throws Error code(s): 0
+   *  See the error-handling.md document for more information.
    */
   public async edit(
     tf: TourFile,
@@ -150,7 +154,8 @@ export class Tourist {
    * @param versionMode Here be dragons. Don't mess with this unless you really
    *  know you want to. This will be used down the line to allow for more
    *  supported version providers, but for now git is the only one.
-   * @throws Throws an error if the `index` is out of bounds.
+   * @throws Error code(s): 0, 100, 101, 200, 201, 202, 203
+   *  See the error-handling.md document for more information.
    */
   public async move(
     tf: TourFile,
@@ -172,6 +177,8 @@ export class Tourist {
    * Generates a tour from a tour file.
    *
    * @param tf
+   * @throws Error code(s): 200
+   *  See the error-handling.md document for more information.
    */
   public async resolve(tf: TourFile): Promise<Tour> {
     const stops = await Promise.all(
@@ -186,12 +193,13 @@ export class Tourist {
   /**
    * Checks a tour file for errors.
    *
+   * The errors will not be thrown, but will instead be put into a list and
+   * returned. The errors that check might return correspond to error codes:
+   * 100, 101, 200, 203, 300
+   *
    * @param tf
    */
   public async check(tf: TourFile): Promise<string[]> {
-    // Verifies that:
-    // - Every stop has a repo that is mapped to both a directory and a version
-    // - Locations in stops are valid
     const errors = [] as string[];
 
     await Promise.all(tf.stops.map(async (stop, i) => {
@@ -249,6 +257,8 @@ export class Tourist {
    * `""`.
    *
    * @param tf
+   * @throws Error code(s): 200, 300
+   *  See the error-handling.md document for more information.
    */
   public async refresh(tf: TourFile) {
     for (const stop of tf.stops) {
@@ -307,6 +317,8 @@ export class Tourist {
    *
    * @param tf
    * @param indices Indices to use for scrambling.
+   * @throws Error code(s): 1
+   *  See the error-handling.md document for more information.
    */
   public async scramble(tf: TourFile, indices: number[]) {
     if (indices.some((i) => i >= tf.stops.length)) {
@@ -328,6 +340,8 @@ export class Tourist {
    * Create a tour file from a string representation.
    *
    * @param json String that encods a tour file.
+   * @throws Error code(s): 400, 401
+   *  See the error-handling.md document for more information.
    */
   public deserializeTourFile(json: string): TourFile {
     try {
@@ -378,6 +392,8 @@ export class Tourist {
    * Deserializes a tourist instance from a string;
    *
    * @param json The JSON string to convert from.
+   * @throws Error code(s): 400
+   *  See the error-handling.md document for more information.
    */
   // tslint:disable-next-line: member-ordering
   public static deserialize(json: string): Tourist {
