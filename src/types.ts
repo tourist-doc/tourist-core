@@ -1,4 +1,7 @@
-import { StableVersion } from "./version-provider/stable-version";
+import {
+  StableVersion,
+  validStableVersion,
+} from "./version-control/stable-version";
 
 export interface TourStop {
   body?: string;
@@ -60,4 +63,42 @@ export interface TourError {
 
 export interface RepoIndex {
   [key: string]: string;
+}
+
+export function validTourFile(obj: any): obj is TourFile {
+  try {
+    return [
+      typeof obj.title === "string",
+      typeof obj.version === "string",
+      obj.stops.every(validTourStop),
+      obj.repositories.every(validRepoState),
+    ].reduce((x, y) => x && y, true);
+  } catch (_) {
+    return false;
+  }
+}
+
+export function validTourStop(obj: any): obj is TourStop {
+  try {
+    return [
+      typeof obj.title === "string",
+      typeof obj.line === "number",
+      typeof obj.relPath === "string",
+      typeof obj.repository === "string",
+    ].reduce((x, y) => x && y, true);
+  } catch (_) {
+    return false;
+  }
+}
+
+export function validRepoState(obj: any): obj is RepoState {
+  try {
+    return [
+      typeof obj.repository === "string",
+      typeof obj.versionMode === "string",
+      validStableVersion(obj.version),
+    ].reduce((x, y) => x && y, true);
+  } catch (_) {
+    return false;
+  }
 }

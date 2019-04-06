@@ -1,13 +1,18 @@
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { suite, test } from "mocha";
 import fs from "fs";
+import { suite, test } from "mocha";
+import { Oid, Reference, Repository, Signature } from "nodegit";
 import os from "os";
 import * as pathutil from "path";
-import { Repository, Signature, Oid, Reference } from "nodegit";
-import { GitVersion } from "../src/version-provider/git-version";
+import { Tourist } from "..";
 import { AbsolutePath, RelativePath } from "../src/paths";
-import { getCurrentVersion, Tourist } from "../src/tourist";
+import {
+  getChangesForFile,
+  getCurrentVersion,
+  StableVersion,
+  versionEq,
+} from "../src/version-control/stable-version";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -66,28 +71,28 @@ suite("git-provider", () => {
   test("version kind is correct", async () => {
     fs.writeFileSync(file, "Hello, world!");
     await commitToRepo([fileName], "Initial commit");
-    const version = await getCurrentVersion(new AbsolutePath(repoDir), "git");
+    const version = await getCurrentVersion("git", new AbsolutePath(repoDir));
     expect(version.kind).to.equal("git");
   });
 
   test("type equal in same commit", async () => {
     fs.writeFileSync(file, "Hello, world!");
     await commitToRepo([fileName], "Initial commit");
-    const version1 = await getCurrentVersion(new AbsolutePath(repoDir), "git");
+    const version1 = await getCurrentVersion("git", new AbsolutePath(repoDir));
     fs.writeFileSync(file, "Hello, world!\nHello world again!");
-    const version2 = await getCurrentVersion(new AbsolutePath(repoDir), "git");
-    expect(version1.equals(version2));
+    const version2 = await getCurrentVersion("git", new AbsolutePath(repoDir));
+    expect(versionEq(version1, version2));
   });
 
   test("type not equal in different commits", async () => {
     fs.writeFileSync(file, "Hello, world!");
     await commitToRepo([fileName], "Initial commit");
-    const version1 = await getCurrentVersion(new AbsolutePath(repoDir), "git");
+    const version1 = await getCurrentVersion("git", new AbsolutePath(repoDir));
     fs.writeFileSync(file, "Hello, world!\nHello world again!");
     await commitToRepo([fileName], "Second commit");
-    const version2 = await getCurrentVersion(new AbsolutePath(repoDir), "git");
+    const version2 = await getCurrentVersion("git", new AbsolutePath(repoDir));
     // tslint:disable-next-line: no-unused-expression
-    expect(version1.equals(version2)).to.be.false;
+    expect(versionEq(version1, version2)).to.be.false;
   });
 
   test("files change correctly: small file", async () => {
@@ -96,9 +101,9 @@ suite("git-provider", () => {
     fs.writeFileSync(file, "Line before\nHello, world!\nLine after");
     await commitToRepo([fileName], "Second commit");
 
-    const version = new GitVersion();
-    version.setCommit(commit.tostrS());
-    const changes = await version.getChangesForFile(
+    const version = { kind: "git" as "git", commit: commit.tostrS() };
+    const changes = await getChangesForFile(
+      version,
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
     );
@@ -116,9 +121,9 @@ suite("git-provider", () => {
     fs.writeFileSync(file, contents.join("\n"));
     await commitToRepo([fileName], "Second commit");
 
-    const version = new GitVersion();
-    version.setCommit(commit.tostrS());
-    const changes = await version.getChangesForFile(
+    const version = { kind: "git" as "git", commit: commit.tostrS() };
+    const changes = await getChangesForFile(
+      version,
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
     );
@@ -138,9 +143,9 @@ suite("git-provider", () => {
     );
     await commitToRepo([fileName], "Second commit");
 
-    const version = new GitVersion();
-    version.setCommit(commit.tostrS());
-    const changes = await version.getChangesForFile(
+    const version = { kind: "git" as "git", commit: commit.tostrS() };
+    const changes = await getChangesForFile(
+      version,
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
     );
@@ -173,9 +178,9 @@ suite("git-provider", () => {
       [parent],
     );
 
-    const version = new GitVersion();
-    version.setCommit(commit.tostrS());
-    const changes = await version.getChangesForFile(
+    const version = { kind: "git" as "git", commit: commit.tostrS() };
+    const changes = await getChangesForFile(
+      version,
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
     );
@@ -187,14 +192,10 @@ suite("git-provider", () => {
   test("safe to serialize", async () => {
     await commitToRepo([], "Initial commit");
 
-    const version = new GitVersion();
-    await version.setToCurrentVersion(new AbsolutePath(repoDir));
-    const newVersion = new GitVersion();
-    newVersion.setFromSerialized(
-      JSON.parse(JSON.stringify(version.serialize())),
-    );
+    const version = await getCurrentVersion("git", new AbsolutePath(repoDir));
+    const newVersion: StableVersion = JSON.parse(JSON.stringify(version));
     expect(version).to.deep.equal(newVersion);
-    expect(newVersion.equals(version));
+    expect(versionEq(newVersion, version));
   });
 
   test("serde git tour file", async () => {
@@ -220,7 +221,45 @@ suite("git-provider", () => {
     const newTf = tourist.deserializeTourFile(tourist.serializeTourFile(tf));
     checkResults = await tourist.check(newTf);
     expect(checkResults.length).to.equal(0);
-    expect(newTf.repositories[0].version.equals(tf.repositories[0].version));
-    expect(tf.repositories[0].version.equals(newTf.repositories[0].version));
+    expect(versionEq(
+      newTf.repositories[0].version,
+      tf.repositories[0].version,
+    ));
+  });
+
+  test("add must be done on same commit", async () => {
+    await commitToRepo([], "Initial commit");
+    const file1 = pathutil.join(repoDir, "my-file-1.txt");
+    fs.writeFileSync(file1, "Hello, world!");
+    const file2 = pathutil.join(repoDir, "my-file-2.txt");
+    fs.writeFileSync(file2, "Hello, world!");
+
+    const stop1 = {
+      absPath: file1,
+      body: "My test body",
+      line: 1,
+      title: "My test title",
+    };
+    const stop2 = {
+      absPath: file2,
+      body: "My test body",
+      line: 1,
+      title: "My test title",
+    };
+
+    const tourist = new Tourist();
+    tourist.mapConfig("repo", repoDir);
+
+    const tf = await tourist.init();
+    await tourist.add(tf, stop1, null, "git");
+
+    await commitToRepo([], "Second commit");
+
+    try {
+      await tourist.add(tf, stop2, null, "git");
+      expect(false);
+    } catch (e) {
+      expect(e.message).to.contain("Mismatched");
+    }
   });
 });

@@ -2,41 +2,22 @@ import af from "async-file";
 import {
   AbsoluteTourStop,
   RepoIndex,
-  RepoState,
   Tour,
   TourError, TourFile, TourStop,
   TourStopEdit,
   TourStopPos,
   BrokenTourStop,
   isNotBroken,
+  validTourFile,
 } from "./types";
 import {
   computeLineDelta,
   StableVersion,
-} from "./version-provider/stable-version";
+  versionEq,
+  getChangesForFile,
+  getCurrentVersion,
+} from "./version-control/stable-version";
 import { RelativePath, AbsolutePath } from "./paths";
-import { GitVersion } from "./version-provider/git-version";
-
-export default {
-  use,
-};
-
-const versionOptions: { [key: string]: () => StableVersion } = {
-  git: () => new GitVersion(),
-};
-
-function use(key: string, versionFactory: () => StableVersion) {
-  versionOptions[key] = versionFactory;
-}
-
-export async function getCurrentVersion(
-  repoPath: AbsolutePath,
-  versionMode: string,
-): Promise<StableVersion> {
-  const version = versionOptions[versionMode]();
-  await version.setToCurrentVersion(repoPath);
-  return version;
-}
 
 export class Tourist {
   private config: RepoIndex;
@@ -98,7 +79,7 @@ export class Tourist {
     const repoState = tf.repositories
       .find((st) => st.repository === relStop.repository);
 
-    if (repoState && !repoState.version.equals(version)) {
+    if (repoState && !versionEq(repoState.version, (version))) {
       // Repo already versioned, versions disagree
       throw new Error("Mismatched repository versions.");
     } else if (!repoState) {
@@ -259,7 +240,8 @@ export class Tourist {
       const repoPath = this.getRepoPath(repoState.repository);
 
       // Compute changes to the file
-      const changes = await repoState.version.getChangesForFile(
+      const changes = await getChangesForFile(
+        repoState.version,
         new RelativePath(stop.repository, stop.relPath),
         repoPath,
       );
@@ -277,7 +259,10 @@ export class Tourist {
     }
     for (const repo of tf.repositories) {
       const repoPath = this.getRepoPath(repo.repository);
-      repo.version = await getCurrentVersion(repoPath, repo.versionMode);
+      repo.version = await getCurrentVersion(
+        repo.versionMode,
+        repoPath,
+      );
     }
   }
 
@@ -303,8 +288,7 @@ export class Tourist {
    * @param tf The tour file to serialize.
    */
   public serializeTourFile(tf: TourFile): string {
-    const obj: any = stripTourFile(tf);
-    return JSON.stringify(obj, null, 2);
+    return JSON.stringify(tf, null, 2);
   }
 
   /**
@@ -314,8 +298,11 @@ export class Tourist {
    */
   public deserializeTourFile(json: string): TourFile {
     try {
-      const obj = JSON.parse(json) as TourFile;
-      return buildTourFile(obj);
+      const obj = JSON.parse(json);
+      if (!validTourFile(obj)) {
+        throw new Error("JSON object was not a TourFile.");
+      }
+      return obj;
     } catch (_) {
       throw new Error("Invalid JSON string.");
     }
@@ -420,7 +407,7 @@ export class Tourist {
     };
 
     const repoPath = this.getRepoPath(relPath.repository);
-    const version = await getCurrentVersion(repoPath, versionMode);
+    const version = await getCurrentVersion(versionMode, repoPath);
 
     return [tourStop, version];
   }
@@ -430,61 +417,4 @@ export class Tourist {
     if (!path) { throw new Error(`No available path for repository ${repo}.`); }
     return new AbsolutePath(path);
   }
-}
-
-/*
- * The `build*` and `strip*` functions deal with serializing and deserializing
- * tour files recursively. This is mostly necessary to make sure that the
- * version objects are set up correctly, but this process also ensures that
- * objects have the correct fields after deserialization.
- */
-
-function buildTourFile(obj: any): TourFile {
-  return {
-    title: obj.title!,
-    version: obj.version!,
-    stops: obj.stops.map(buildTourStop),
-    repositories: obj.repositories.map(buildRepoState),
-  };
-}
-
-function stripTourFile(tf: TourFile): any {
-  return {
-    title: tf.title,
-    version: tf.version,
-    stops: tf.stops.map(stripTourStop)!,
-    repositories: tf.repositories.map(stripRepoState)!,
-  };
-}
-
-function buildTourStop(obj: any): TourStop {
-  return {
-    body: obj.body,
-    line: obj.line!,
-    relPath: obj.relPath!,
-    repository: obj.repository!,
-    title: obj.title!,
-  };
-}
-
-function stripTourStop(stop: TourStop): any {
-  return stop;
-}
-
-function buildRepoState(obj: any): RepoState {
-  const version = versionOptions[obj.versionMode!]();
-  version.setFromSerialized(obj.version!);
-  return {
-    version,
-    repository: obj.repository!,
-    versionMode: obj.versionMode!,
-  };
-}
-
-function stripRepoState(state: RepoState): any {
-  return {
-    repository: state.repository,
-    versionMode: state.versionMode,
-    version: state.version.serialize(),
-  };
 }

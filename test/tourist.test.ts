@@ -4,13 +4,8 @@ import fs from "fs";
 import { suite, test } from "mocha";
 import os from "os";
 import * as pathutil from "path";
-import touristModule, { AbsoluteTourStop, Tourist } from "..";
-import { MockVersion } from "./mock-version";
+import { AbsoluteTourStop, Tourist } from "..";
 import { isNotBroken } from "../src/types";
-
-touristModule.use(
-  "mock", () => new MockVersion(),
-);
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -88,7 +83,7 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null, "mock");
+    await tourist.add(tf, stop, null, "unversioned");
     const tour = await tourist.resolve(tf);
 
     expect(tour.stops[0]).to.deep.equal(stop);
@@ -107,9 +102,9 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null, "mock");
+    await tourist.add(tf, stop, null, "unversioned");
     await tourist.resolve(tf);
-    await tourist.add(tf, stop, null, "mock");
+    await tourist.add(tf, stop, null, "unversioned");
     const tour = await tourist.resolve(tf);
 
     expect(tour.stops[1]).to.deep.equal(stop);
@@ -128,7 +123,7 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null, "mock");
+    await tourist.add(tf, stop, null, "unversioned");
     await tourist.remove(tf, 0);
     const tour = await tourist.resolve(tf);
 
@@ -147,7 +142,7 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null, "mock");
+    await tourist.add(tf, stop, null, "unversioned");
     await tourist.edit(tf, 0, { body: "Edited body", title: "Edited title" });
     const tour = await tourist.resolve(tf);
 
@@ -169,12 +164,12 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null, "mock");
+    await tourist.add(tf, stop, null, "unversioned");
     await tourist.move(
       tf,
       0,
       { absPath: file, line: 3 },
-      "mock",
+      "unversioned",
     );
     const tour = await tourist.resolve(tf);
 
@@ -206,7 +201,7 @@ suite("tourist", () => {
 
     const tf = await tourist.init();
     for (const stop of stops) {
-      await tourist.add(tf, stop, null, "mock");
+      await tourist.add(tf, stop, null, "unversioned");
     }
     await tourist.scramble(tf, [1, 2, 0]);
     const tour = await tourist.resolve(tf);
@@ -214,39 +209,5 @@ suite("tourist", () => {
     expect(tour.stops[0]).to.deep.equal(stops[1]);
     expect(tour.stops[1]).to.deep.equal(stops[2]);
     expect(tour.stops[2]).to.deep.equal(stops[0]);
-  });
-
-  test("add must be done on same commit", async () => {
-    const file1 = pathutil.join(repoDir, "my-file-1.txt");
-    fs.writeFileSync(file1, "Hello, world!");
-    const file2 = pathutil.join(repoDir, "my-file-2.txt");
-    fs.writeFileSync(file2, "Hello, world!");
-
-    const stop1 = {
-      absPath: file1,
-      body: "My test body",
-      line: 1,
-      title: "My test title",
-    };
-    const stop2 = {
-      absPath: file2,
-      body: "My test body",
-      line: 1,
-      title: "My test title",
-    };
-
-    const tf = await tourist.init();
-    await tourist.add(tf, stop1, null, "mock");
-
-    // Simulate version changing independent of tourist
-    const mv = tf.repositories
-      .find((r) => r.repository === "repo")!.version as MockVersion;
-    mv.version++;
-
-    try {
-      await tourist.add(tf, stop2, null, "mock");
-    } catch (e) {
-      expect(e.message).to.contain("Mismatched");
-    }
   });
 });
