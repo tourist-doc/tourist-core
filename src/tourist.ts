@@ -2,6 +2,7 @@ import af from "async-file";
 import {
   AbsoluteTourStop,
   RepoIndex,
+  RepoState,
   Tour,
   TourError, TourFile, TourStop,
   TourStopEdit,
@@ -302,19 +303,8 @@ export class Tourist {
    * @param tf The tour file to serialize.
    */
   public serializeTourFile(tf: TourFile): string {
-    const newTf = {
-      stops: tf.stops,
-      title: tf.title,
-      version: tf.version,
-      repositories: tf.repositories.map((state) => {
-        return {
-          repository: state.repository,
-          versionMode: state.versionMode,
-          version: state.version.serialize(),
-        };
-      }),
-    };
-    return JSON.stringify(newTf, null, 2);
+    const obj: any = stripTourFile(tf);
+    return JSON.stringify(obj, null, 2);
   }
 
   /**
@@ -323,18 +313,12 @@ export class Tourist {
    * @param json String that encods a tour file.
    */
   public deserializeTourFile(json: string): TourFile {
-    let tf: TourFile;
     try {
-      tf = JSON.parse(json) as TourFile;
+      const obj = JSON.parse(json) as TourFile;
+      return buildTourFile(obj);
     } catch (_) {
       throw new Error("Invalid JSON string.");
     }
-    tf.repositories.forEach((state: any) => {
-      const version = versionOptions[state.versionMode]();
-      version.setFromSerialized(state.version);
-      state.version = version;
-    });
-    return tf as TourFile;
   }
 
   /**
@@ -446,4 +430,61 @@ export class Tourist {
     if (!path) { throw new Error(`No available path for repository ${repo}.`); }
     return new AbsolutePath(path);
   }
+}
+
+/*
+ * The `build*` and `strip*` functions deal with serializing and deserializing
+ * tour files recursively. This is mostly necessary to make sure that the
+ * version objects are set up correctly, but this process also ensures that
+ * objects have the correct fields after deserialization.
+ */
+
+function buildTourFile(obj: any): TourFile {
+  return {
+    title: obj.title!,
+    version: obj.version!,
+    stops: obj.stops.map(buildTourStop),
+    repositories: obj.repositories.map(buildRepoState),
+  };
+}
+
+function stripTourFile(tf: TourFile): any {
+  return {
+    title: tf.title,
+    version: tf.version,
+    stops: tf.stops.map(stripTourStop)!,
+    repositories: tf.repositories.map(stripRepoState)!,
+  };
+}
+
+function buildTourStop(obj: any): TourStop {
+  return {
+    body: obj.body,
+    line: obj.line!,
+    relPath: obj.relPath!,
+    repository: obj.repository!,
+    title: obj.title!,
+  };
+}
+
+function stripTourStop(stop: TourStop): any {
+  return stop;
+}
+
+function buildRepoState(obj: any): RepoState {
+  const version = versionOptions[obj.versionMode!]();
+  version.setFromSerialized(obj.version!);
+  return {
+    version,
+    repository: obj.repository!,
+    versionMode: obj.versionMode!,
+  };
+}
+
+function stripRepoState(state: RepoState): any {
+  return {
+    repository: state.repository,
+    versionMode: state.versionMode,
+    version: state.version.serialize(),
+  };
 }
