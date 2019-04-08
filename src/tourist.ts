@@ -1,4 +1,4 @@
-import af from "async-file";
+import * as af from "async-file";
 import {
   AbsoluteTourStop,
   RepoIndex,
