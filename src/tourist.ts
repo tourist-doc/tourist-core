@@ -411,7 +411,7 @@ export class Tourist {
   private async verifyLocation(path: AbsolutePath, line: number) {
     try {
       const data: Buffer = await af.readFile(path.path);
-      if (line > data.toString().split("\n").length) {
+      if (line < 1 || line > data.toString().split("\n").length) {
         throw new TouristError(
           101, `Invalid location. No line ${line} in ${path.path}.`,
         );
