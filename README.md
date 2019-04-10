@@ -1,7 +1,13 @@
 # Tourist
 
-Tourist is a tool for writing and viewing interactive documentation. A
-**tour** is a series of locations throughout a codebase, along with
+Tourist is a new approach to documentation that allows programmers to explain
+low-level technical details of a system while simultaneously providing the
+context of how those details fit into the broader architecture. It lets
+programmers document code in the same way that they would explain it in
+person: by walking the consumer step-by-step through the important parts of a
+codebase.
+
+A **tour** is a series of locations throughout a codebase, along with
 accompanying prose that explains the importance each location in turn.
 
 A maintainer of a project can more effectively introduce newcomers to the
