@@ -169,8 +169,8 @@ export class Tourist {
     const stop = await this.resolveStop(tf.stops[index]) as AbsoluteTourStop;
     stop.absPath = stopPos.absPath;
     stop.line = stopPos.line;
-    await this.remove(tf, index);
     await this.add(tf, stop, index, versionMode);
+    await this.remove(tf, index + 1);
   }
 
   /**

@@ -178,6 +178,39 @@ suite("tourist", () => {
     expect((tour.stops[0] as AbsoluteTourStop).line).to.equal(3);
   });
 
+  test("move to bad location is OK", async () => {
+    const file = pathutil.join(repoDir, "my-file.txt");
+    fs.writeFileSync(
+      file, "Hello, world!\nHello, world!\nHello, world!",
+    );
+
+    const stop = {
+      absPath: file,
+      body: "My test body",
+      line: 1,
+      title: "My test title",
+    };
+
+    const tf = await tourist.init();
+    await tourist.add(tf, stop, null, "unversioned");
+    try {
+      await tourist.move(
+        tf,
+        0,
+        { absPath: file, line: 42 },
+        "unversioned",
+      );
+      expect(false);
+    } catch (e) {
+      expect(e.message).to.contain("Invalid");
+    }
+    const tour = await tourist.resolve(tf);
+
+    expect(isNotBroken(tour.stops[0]));
+    expect((tour.stops[0] as AbsoluteTourStop).absPath).to.equal(file);
+    expect((tour.stops[0] as AbsoluteTourStop).line).to.equal(1);
+  });
+
   test("scramble tourstops", async () => {
     const files = [
       pathutil.join(repoDir, "my-file-1.txt"),
