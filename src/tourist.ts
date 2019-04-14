@@ -17,7 +17,7 @@ import {
   versionEq,
   getChangesForFile,
   getCurrentVersion,
-} from "./version-control/stable-version";
+} from "./version-control/stableVersion";
 import { RelativePath, AbsolutePath } from "./paths";
 
 export class Tourist {

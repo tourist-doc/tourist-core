@@ -1,7 +1,7 @@
 import {
   StableVersion,
   validStableVersion,
-} from "./version-control/stable-version";
+} from "./version-control/stableVersion";
 
 export interface TourStop {
   body?: string;

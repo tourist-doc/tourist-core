@@ -2,7 +2,6 @@ import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import fs from "fs";
 import { suite, test } from "mocha";
-import { Oid, Reference, Repository, Signature } from "nodegit";
 import os from "os";
 import * as pathutil from "path";
 import { Tourist } from "..";
@@ -12,7 +11,8 @@ import {
   getCurrentVersion,
   StableVersion,
   versionEq,
-} from "../src/version-control/stable-version";
+} from "../src/version-control/stableVersion";
+import { git } from "../src/version-control/gitUtils";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -20,7 +20,6 @@ const expect = chai.expect;
 const outputDir = pathutil.join(os.tmpdir(), "tourist-test-out");
 const testDataDir = pathutil.join(__dirname, "data");
 const repoDir = pathutil.join(outputDir, "repo");
-const signature = Signature.now("Some Guy", "someguy@gmail.com");
 
 function deleteFolderRecursive(path: string) {
   if (fs.existsSync(path)) {
@@ -37,14 +36,18 @@ function deleteFolderRecursive(path: string) {
 }
 
 suite("git-provider", () => {
-  let repository: Repository;
+  let repository: AbsolutePath;
   let fileName: string;
   let file: string;
 
-  async function commitToRepo(files: string[], message: string): Promise<Oid> {
-    return await repository.createCommitOnHead(
-      files, signature, signature, message,
-    );
+  async function commitToRepo(
+    message: string,
+  ): Promise<string> {
+    await git(repository, "add", ["-A"]);
+    await git(repository, "commit", [
+      `-m "${message}"`,
+    ]);
+    return await git(repository, "rev-parse", ["HEAD"]).then((x) => x.trim());
   }
 
   before("make sure we're in a clean state", () => {
@@ -59,7 +62,8 @@ suite("git-provider", () => {
     fs.mkdirSync(outputDir);
     fs.mkdirSync(repoDir);
 
-    repository = await Repository.init(repoDir, 0);
+    repository = new AbsolutePath(repoDir);
+    await git(repository, "init", []);
     fileName = "my-file.txt";
     file = pathutil.join(repoDir, fileName);
   });
@@ -70,14 +74,14 @@ suite("git-provider", () => {
 
   test("version kind is correct", async () => {
     fs.writeFileSync(file, "Hello, world!");
-    await commitToRepo([fileName], "Initial commit");
+    await commitToRepo("Initial commit");
     const version = await getCurrentVersion("git", new AbsolutePath(repoDir));
     expect(version!.kind).to.equal("git");
   });
 
   test("type equal in same commit", async () => {
     fs.writeFileSync(file, "Hello, world!");
-    await commitToRepo([fileName], "Initial commit");
+    await commitToRepo("Initial commit");
     const version1 = await getCurrentVersion("git", new AbsolutePath(repoDir));
     fs.writeFileSync(file, "Hello, world!\nHello world again!");
     const version2 = await getCurrentVersion("git", new AbsolutePath(repoDir));
@@ -86,10 +90,10 @@ suite("git-provider", () => {
 
   test("type not equal in different commits", async () => {
     fs.writeFileSync(file, "Hello, world!");
-    await commitToRepo([fileName], "Initial commit");
+    await commitToRepo("Initial commit");
     const version1 = await getCurrentVersion("git", new AbsolutePath(repoDir));
     fs.writeFileSync(file, "Hello, world!\nHello world again!");
-    await commitToRepo([fileName], "Second commit");
+    await commitToRepo("Second commit");
     const version2 = await getCurrentVersion("git", new AbsolutePath(repoDir));
     // tslint:disable-next-line: no-unused-expression
     expect(versionEq(version1!, version2!)).to.be.false;
@@ -97,11 +101,11 @@ suite("git-provider", () => {
 
   test("files change correctly: small file", async () => {
     fs.writeFileSync(file, "Hello, world!");
-    const commit = await commitToRepo([fileName], "Initial commit");
+    const commit = await commitToRepo("Initial commit");
     fs.writeFileSync(file, "Line before\nHello, world!\nLine after");
-    await commitToRepo([fileName], "Second commit");
+    await commitToRepo("Second commit");
 
-    const version = { kind: "git" as "git", commit: commit.tostrS() };
+    const version = { kind: "git" as "git", commit };
     const changes = await getChangesForFile(
       version,
       new RelativePath("repo", fileName),
@@ -115,13 +119,13 @@ suite("git-provider", () => {
 
   test("files change correctly: bigger file", async () => {
     fs.copyFileSync(pathutil.join(testDataDir, "many-lines.txt"), file);
-    const commit = await commitToRepo([fileName], "Initial commit");
+    const commit = await commitToRepo("Initial commit");
     let contents = fs.readFileSync(file).toString().split("\n");
     contents = ["A new line!", ...contents];
     fs.writeFileSync(file, contents.join("\n"));
-    await commitToRepo([fileName], "Second commit");
+    await commitToRepo("Second commit");
 
-    const version = { kind: "git" as "git", commit: commit.tostrS() };
+    const version = { kind: "git" as "git", commit };
     const changes = await getChangesForFile(
       version,
       new RelativePath("repo", fileName),
@@ -137,13 +141,13 @@ suite("git-provider", () => {
 
   test("files change correctly: target-in-middle", async () => {
     fs.copyFileSync(pathutil.join(testDataDir, "target-in-middle.txt"), file);
-    const commit = await commitToRepo([fileName], "Initial commit");
+    const commit = await commitToRepo("Initial commit");
     fs.copyFileSync(
       pathutil.join(testDataDir, "target-in-middle-after.txt"), file,
     );
-    await commitToRepo([fileName], "Second commit");
+    await commitToRepo("Second commit");
 
-    const version = { kind: "git" as "git", commit: commit.tostrS() };
+    const version = { kind: "git" as "git", commit };
     const changes = await getChangesForFile(
       version,
       new RelativePath("repo", fileName),
@@ -159,26 +163,11 @@ suite("git-provider", () => {
     const otherFileName = "other-file.txt";
     const otherFile = pathutil.join(repoDir, otherFileName);
     fs.writeFileSync(file, "Hello, world!");
-    const commit = await commitToRepo([fileName], "Initial commit");
+    const commit = await commitToRepo("Initial commit");
     fs.renameSync(file, otherFile);
+    await commitToRepo("Second commit");
 
-    const index = await repository.index();
-    await index.remove(fileName, 0);
-    await index.addByPath(otherFileName);
-    index.write();
-    const oid = await index.writeTree();
-    const head = await Reference.nameToId(repository, "HEAD");
-    const parent = await repository.getCommit(head);
-    await repository.createCommit(
-      "HEAD",
-      signature,
-      signature,
-      "Second Commit",
-      oid,
-      [parent],
-    );
-
-    const version = { kind: "git" as "git", commit: commit.tostrS() };
+    const version = { kind: "git" as "git", commit };
     const changes = await getChangesForFile(
       version,
       new RelativePath("repo", fileName),
@@ -190,7 +179,8 @@ suite("git-provider", () => {
   });
 
   test("safe to serialize", async () => {
-    await commitToRepo([], "Initial commit");
+    fs.writeFileSync(file, "Hello, world!");
+    await commitToRepo("Initial commit");
 
     const version = await getCurrentVersion("git", new AbsolutePath(repoDir));
     const newVersion: StableVersion = JSON.parse(JSON.stringify(version));
@@ -200,7 +190,7 @@ suite("git-provider", () => {
 
   test("serde git tour file", async () => {
     fs.writeFileSync(file, "Hello, world!");
-    await commitToRepo([fileName], "Initial commit");
+    await commitToRepo("Initial commit");
 
     const tourist = new Tourist();
     tourist.mapConfig("repo", repoDir);
@@ -228,7 +218,8 @@ suite("git-provider", () => {
   });
 
   test("add must be done on same commit", async () => {
-    await commitToRepo([], "Initial commit");
+    fs.writeFileSync(file, "Hello, world!");
+    await commitToRepo("Initial commit");
     const file1 = pathutil.join(repoDir, "my-file-1.txt");
     fs.writeFileSync(file1, "Hello, world!");
     const file2 = pathutil.join(repoDir, "my-file-2.txt");
@@ -253,7 +244,7 @@ suite("git-provider", () => {
     const tf = await tourist.init();
     await tourist.add(tf, stop1, null, "git");
 
-    await commitToRepo([], "Second commit");
+    await commitToRepo("Second commit");
 
     try {
       await tourist.add(tf, stop2, null, "git");

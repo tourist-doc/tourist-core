@@ -1,5 +1,5 @@
 import { AbsolutePath, RelativePath } from "../paths";
-import { headCommit, gitDiffFile } from "./git-utils";
+import { headCommit, gitDiffFile } from "./gitUtils";
 
 export interface FileChanges {
   additions: number[];
