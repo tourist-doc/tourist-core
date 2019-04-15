@@ -4,10 +4,11 @@ import {
 } from "./stableVersion";
 import { RelativePath, AbsolutePath } from "../paths";
 import child_process from "child_process";
-import { promisify } from "util";
+import util from "util";
 import parseDiff from "parse-diff";
 
-const exec = promisify(child_process.exec);
+// This is sort of a hack, but it works
+const exec = (util as any).promisify(child_process.exec);
 
 export async function git(
   path: AbsolutePath,
