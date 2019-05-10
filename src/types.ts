@@ -103,10 +103,13 @@ export class TouristError extends Error {
   public code: number;
   public message: string;
 
-  constructor(code: number, message: string) {
+  public repoName?: string;
+
+  constructor(code: number, message: string, repoName?: string) {
     super(message);
     Object.setPrototypeOf(this, TouristError.prototype);
     this.code = code;
     this.message = message;
+    this.repoName = repoName;
   }
 }

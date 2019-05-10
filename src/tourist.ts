@@ -88,6 +88,7 @@ export class Tourist {
         203,
         `Mismatched versions. Repository ${repoState.repository} is checked` +
         ` out to the wrong version.`,
+        repoState.repository,
       );
     } else if (!repoState) {
       // Repo not versioned, add version
@@ -209,7 +210,7 @@ export class Tourist {
       try {
         if (!abs) {
           throw new TouristError(
-            200, `Repository ${stop.repository} is not mapped to a path.`,
+            200, `Repository ${stop.repository} is not mapped to a path.`, stop.repository,
           );
         }
 
@@ -219,7 +220,7 @@ export class Tourist {
           .find((s) => s.repository === stop.repository);
         if (!state) {
           throw new TouristError(
-            300, `No version for repository ${stop.repository}.`,
+            300, `No version for repository ${stop.repository}.`, stop.repository,
           );
         }
 
@@ -231,6 +232,7 @@ export class Tourist {
           throw new TouristError(
             202,
             `Could not get current version for repository ${stop.repository}.`,
+            stop.repository,
           );
         }
         if (!versionEq(state.version, currVersion)) {
@@ -238,6 +240,7 @@ export class Tourist {
             203,
             `Mismatched versions. Repository ${state.repository} is checked` +
             ` out to the wrong version.`,
+            state.repository,
           );
         }
       } catch (e) {
@@ -269,6 +272,7 @@ export class Tourist {
       if (!repoState) {
         throw new TouristError(
           300, `No version for repository ${stop.repository}.`,
+          stop.repository,
         );
       }
 
@@ -303,6 +307,7 @@ export class Tourist {
         throw new TouristError(
           202,
           `Could not get current version for repository ${repo.repository}.`,
+          repo.repository,
         );
       }
       repo.version = version;
@@ -430,7 +435,7 @@ export class Tourist {
     const absPath = relPath.toAbsolutePath(this.config);
     if (!absPath) {
       throw new TouristError(
-        200, `Repository ${stop.repository} is not mapped to a path.`,
+        200, `Repository ${stop.repository} is not mapped to a path.`, stop.repository,
       );
     }
     if (stop.line === 0 || absPath.path === "") {
@@ -469,7 +474,7 @@ export class Tourist {
     if (!version) {
       throw new TouristError(
         202,
-        `Could not get current version for repository ${relPath.repository}.`,
+        `Could not get current version for repository ${relPath.repository}.`, relPath.repository,
       );
     }
 
@@ -480,7 +485,7 @@ export class Tourist {
     const path = this.config[repo];
     if (!path) {
       throw new TouristError(
-        200, `Repository ${repo} is not mapped to a path.`,
+        200, `Repository ${repo} is not mapped to a path.`, repo,
       );
     }
     return new AbsolutePath(path);
