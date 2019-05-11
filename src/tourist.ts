@@ -21,10 +21,10 @@ import {
 import { RelativePath, AbsolutePath } from "./paths";
 
 export class Tourist {
-  private config: RepoIndex;
+  public readonly config: RepoIndex;
 
-  constructor() {
-    this.config = {};
+  constructor(config: RepoIndex = {}) {
+    this.config = config;
   }
 
   /**
@@ -267,7 +267,7 @@ export class Tourist {
     for (const stop of tf.stops) {
       const repoState = tf.repositories.find((st) =>
         st.repository === stop.repository,
-      );  // safe to bang here since `check` covers this case
+      );  // safe to bang here since `check` covers case
 
       if (!repoState) {
         throw new TouristError(
@@ -344,7 +344,7 @@ export class Tourist {
   /**
    * Create a tour file from a string representation.
    *
-   * @param json String that encods a tour file.
+   * @param json String that encodes a tour file.
    * @throws Error code(s): 400, 401
    *  See the error-handling.md document for more information.
    */
@@ -408,8 +408,7 @@ export class Tourist {
     } catch (_) {
       throw new TouristError(400, "Invalid JSON string.");
     }
-    const tourist = new Tourist();
-    tourist.config = config;
+    const tourist = new Tourist(config);
     return tourist;
   }
 
