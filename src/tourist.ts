@@ -301,7 +301,6 @@ export class Tourist {
         repoState.commit,
         new RelativePath(stop.repository, stop.relPath),
         repoPath,
-        false,
       );
       if (!changes) {
         continue;
@@ -450,11 +449,10 @@ export class Tourist {
       );
     }
     const broken = { body: stop.body, title: stop.title };
-    const changes = await this.vp.getChangesForFile(
+    const changes = await this.vp.getDirtyChangesForFile(
       commit,
       new RelativePath(stop.repository, stop.relPath),
       repoPath,
-      true,
     );
     if (!changes) {
       return broken;

@@ -13,7 +13,11 @@ export interface VersionProvider {
     version: string,
     path: RelativePath,
     repoPath: AbsolutePath,
-    includeWorkingCopy: boolean,
+  ): Promise<FileChanges | null>;
+  getDirtyChangesForFile(
+    version: string,
+    path: RelativePath,
+    repoPath: AbsolutePath,
   ): Promise<FileChanges | null>;
 }
 
@@ -27,7 +31,36 @@ export class GitProvider implements VersionProvider {
     }
   }
 
+  public async git(
+    path: AbsolutePath,
+    command: string,
+    args: string[],
+  ): Promise<string> {
+    const fullCommand = `git -C ${path.path} ${command} ${args.join(" ")}`;
+    const res = await exec(fullCommand);
+    if (res.stderr) {
+      throw new Error(res.stderr);
+    }
+    return res.stdout;
+  }
+
+  public async getDirtyChangesForFile(
+    commit: string,
+    path: RelativePath,
+    repoPath: AbsolutePath,
+  ): Promise<FileChanges | null> {
+    return await this.getGenericChangesForFile(commit, path, repoPath, true);
+  }
+
   public async getChangesForFile(
+    commit: string,
+    path: RelativePath,
+    repoPath: AbsolutePath,
+  ): Promise<FileChanges | null> {
+    return await this.getGenericChangesForFile(commit, path, repoPath, false);
+  }
+
+  private async getGenericChangesForFile(
     commit: string,
     path: RelativePath,
     repoPath: AbsolutePath,
@@ -68,19 +101,6 @@ export class GitProvider implements VersionProvider {
     }
 
     return new FileChanges(additions, deletions, moves, file.to || file.from);
-  }
-
-  public async git(
-    path: AbsolutePath,
-    command: string,
-    args: string[],
-  ): Promise<string> {
-    const fullCommand = `git -C ${path.path} ${command} ${args.join(" ")}`;
-    const res = await exec(fullCommand);
-    if (res.stderr) {
-      throw new Error(res.stderr);
-    }
-    return res.stdout;
   }
 
   private async diffWithHead(

@@ -96,7 +96,6 @@ suite("git-provider", () => {
       commit,
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
-      false,
     );
 
     expect(changes).to.not.be.a("null");
@@ -119,7 +118,6 @@ suite("git-provider", () => {
       commit,
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
-      false,
     );
 
     // tslint:disable-next-line: no-unused-expression
@@ -142,7 +140,6 @@ suite("git-provider", () => {
       commit,
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
-      false,
     );
 
     expect(changes).to.not.be.a("null");
@@ -162,7 +159,6 @@ suite("git-provider", () => {
       commit,
       new RelativePath("repo", fileName),
       new AbsolutePath(repoDir),
-      false,
     );
 
     expect(changes).to.not.be.a("null");
@@ -254,11 +250,11 @@ suite("git-provider", () => {
       expect((tour.stops[0] as AbsoluteTourStop).line).to.equal(1);
     }
 
-    fs.writeFileSync(file, "Some new stuff\nHello, world!");
+    fs.writeFileSync(file, "Some new stuff\nother stuff\nHello, world!");
 
     {
       const tour = await tourist.resolve(tf);
-      expect((tour.stops[0] as AbsoluteTourStop).line).to.equal(2);
+      expect((tour.stops[0] as AbsoluteTourStop).line).to.equal(3);
     }
 
     fs.writeFileSync(file, "Hello, world!\nSome other stuff");
@@ -266,6 +262,39 @@ suite("git-provider", () => {
     {
       const tour = await tourist.resolve(tf);
       expect((tour.stops[0] as AbsoluteTourStop).line).to.equal(1);
+    }
+  });
+
+  test("more delta tests", async () => {
+    fs.writeFileSync(file, "Hello, world!");
+    await commitToRepo("Initial commit");
+
+    const tourist = new Tourist();
+    tourist.mapConfig("repo", repoDir);
+
+    const stop = {
+      absPath: file,
+      body: "My test body",
+      line: 1,
+      title: "My test title",
+    };
+
+    const tf = await tourist.init();
+    await tourist.add(tf, stop, null);
+
+    fs.writeFileSync(file, "");
+
+    {
+      const tour = await tourist.resolve(tf);
+      // tslint:disable-next-line: no-unused-expression
+      expect((tour.stops[0] as AbsoluteTourStop).line).to.be.undefined;
+    }
+
+    fs.writeFileSync(file, "\n\n\n\n\n\n\nHello, world!");
+
+    {
+      const tour = await tourist.resolve(tf);
+      expect((tour.stops[0] as AbsoluteTourStop).line).to.equal(8);
     }
   });
 });

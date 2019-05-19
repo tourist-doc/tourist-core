@@ -24,6 +24,16 @@ class MockProvider implements VersionProvider {
   ): Promise<FileChanges | null> {
     return new FileChanges([], [], new Map(), path.path);
   }
+
+  public async getDirtyChangesForFile(
+    // tslint:disable variable-name
+    _version: string,
+    path: RelativePath,
+    // tslint:disable variable-name
+    _repoPath: AbsolutePath,
+  ): Promise<FileChanges | null> {
+    return new FileChanges([], [], new Map(), path.path);
+  }
 }
 
 chai.use(chaiAsPromised);
