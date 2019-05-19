@@ -11,20 +11,17 @@ import {
   validTourFile,
   TouristError,
 } from "./types";
-import {
-  computeLineDelta,
-  StableVersion,
-  versionEq,
-  getChangesForFile,
-  getCurrentVersion,
-} from "./version-control/stableVersion";
+import { VersionProvider, GitProvider } from "./versionProvider";
 import { RelativePath, AbsolutePath } from "./paths";
+import { FileChanges } from "./fileChanges";
 
 export class Tourist {
   public readonly config: RepoIndex;
+  public vp: VersionProvider;
 
   constructor(config: RepoIndex = {}) {
     this.config = config;
+    this.vp = new GitProvider();
   }
 
   /**
@@ -70,20 +67,19 @@ export class Tourist {
     tf: TourFile,
     stop: AbsoluteTourStop,
     index: number | null = null,
-    versionMode: string = "git",
   ) {
     // Make sure file exists and line is valid (might throw error)
     await this.verifyLocation(new AbsolutePath(stop.absPath), stop.line);
 
     // Get relative stop, current version of the repo (might throw error)
-    const [relStop, version] = await this.abstractStop(stop, versionMode);
+    const [relStop, version] = await this.abstractStop(stop);
 
     // Find the appropriate repo version in the tour file
     const repoState = tf.repositories.find(
       (st) => st.repository === relStop.repository,
     );
 
-    if (repoState && !versionEq(repoState.version, version)) {
+    if (repoState && repoState.commit !== version) {
       // Repo already versioned, versions disagree
       throw new TouristError(
         203,
@@ -95,8 +91,7 @@ export class Tourist {
       // Repo not versioned, add version
       tf.repositories.push({
         repository: relStop.repository,
-        version,
-        versionMode,
+        commit: version,
       });
     }
 
@@ -159,19 +154,14 @@ export class Tourist {
    * @throws Error code(s): 0, 100, 101, 200, 201, 202, 203
    *  See the error-handling.md document for more information.
    */
-  public async move(
-    tf: TourFile,
-    index: number,
-    stopPos: TourStopPos,
-    versionMode: string = "git",
-  ) {
+  public async move(tf: TourFile, index: number, stopPos: TourStopPos) {
     if (index >= tf.stops.length) {
       throw new TouristError(0, "Index out of bounds.");
     }
     const stop = (await this.resolveStop(tf.stops[index])) as AbsoluteTourStop;
     stop.absPath = stopPos.absPath;
     stop.line = stopPos.line;
-    await this.add(tf, stop, index, versionMode);
+    await this.add(tf, stop, index);
     await this.remove(tf, index + 1);
   }
 
@@ -231,8 +221,7 @@ export class Tourist {
             );
           }
 
-          const currVersion = await getCurrentVersion(
-            state.versionMode,
+          const currVersion = await this.vp.getCurrentVersion(
             this.getRepoPath(state.repository),
           );
           if (!currVersion) {
@@ -244,7 +233,7 @@ export class Tourist {
               stop.repository,
             );
           }
-          if (!versionEq(state.version, currVersion)) {
+          if (state.commit !== currVersion) {
             throw new TouristError(
               203,
               `Mismatched versions. Repository ${state.repository} is checked` +
@@ -291,8 +280,8 @@ export class Tourist {
       const repoPath = this.getRepoPath(repoState.repository);
 
       // Compute changes to the file
-      const changes = await getChangesForFile(
-        repoState.version,
+      const changes: FileChanges | null = await this.vp.getChangesForFile(
+        repoState.commit,
         new RelativePath(stop.repository, stop.relPath),
         repoPath,
       );
@@ -301,7 +290,7 @@ export class Tourist {
       }
 
       // Apply the changes to the stop
-      const newLine = computeLineDelta(changes, stop.line);
+      const newLine = changes.computeDelta(stop.line);
       if (newLine !== null) {
         stop.line = newLine;
         stop.relPath = changes.name;
@@ -312,7 +301,7 @@ export class Tourist {
     }
     for (const repo of tf.repositories) {
       const repoPath = this.getRepoPath(repo.repository);
-      const version = await getCurrentVersion(repo.versionMode, repoPath);
+      const version = await this.vp.getCurrentVersion(repoPath);
       if (!version) {
         throw new TouristError(
           202,
@@ -320,7 +309,7 @@ export class Tourist {
           repo.repository,
         );
       }
-      repo.version = version;
+      repo.commit = version;
     }
   }
 
@@ -464,8 +453,7 @@ export class Tourist {
 
   private async abstractStop(
     stop: AbsoluteTourStop,
-    versionMode: string,
-  ): Promise<[TourStop, StableVersion]> {
+  ): Promise<[TourStop, string]> {
     const absPath = new AbsolutePath(stop.absPath);
     const relPath = absPath.toRelativePath(this.config);
     if (!relPath) {
@@ -484,7 +472,7 @@ export class Tourist {
     };
 
     const repoPath = this.getRepoPath(relPath.repository);
-    const version = await getCurrentVersion(versionMode, repoPath);
+    const version = await this.vp.getCurrentVersion(repoPath);
     if (!version) {
       throw new TouristError(
         202,

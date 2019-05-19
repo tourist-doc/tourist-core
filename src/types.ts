@@ -1,8 +1,3 @@
-import {
-  StableVersion,
-  validStableVersion,
-} from "./version-control/stableVersion";
-
 export interface TourStop {
   body?: string;
   line: number;
@@ -41,8 +36,7 @@ export interface TourStopEdit {
 
 export interface RepoState {
   repository: string;
-  version: StableVersion;
-  versionMode: string;
+  commit: string;
 }
 
 export interface TourFile {
@@ -91,8 +85,7 @@ export function validRepoState(obj: any): obj is RepoState {
   try {
     return [
       typeof obj.repository === "string",
-      typeof obj.versionMode === "string",
-      validStableVersion(obj.version),
+      typeof obj.commit === "string",
     ].reduce((x, y) => x && y, true);
   } catch (_) {
     return false;

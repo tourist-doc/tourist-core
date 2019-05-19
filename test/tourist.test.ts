@@ -6,6 +6,26 @@ import os from "os";
 import * as pathutil from "path";
 import { AbsoluteTourStop, Tourist } from "..";
 import { isNotBroken } from "../src/types";
+import { VersionProvider } from "../src/versionProvider";
+import { AbsolutePath, RelativePath } from "../src/paths";
+import { FileChanges } from "../src/fileChanges";
+
+class MockProvider implements VersionProvider {
+  // tslint:disable variable-name
+  public async getCurrentVersion(_path: AbsolutePath): Promise<string | null> {
+    return "VERSION";
+  }
+  public async getChangesForFile(
+    // tslint:disable variable-name
+    _version: string,
+    // tslint:disable variable-name
+    _path: RelativePath,
+    // tslint:disable variable-name
+    _repoPath: AbsolutePath,
+  ): Promise<FileChanges | null> {
+    return new FileChanges([], [], new Map(), "");
+  }
+}
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -13,6 +33,7 @@ const expect = chai.expect;
 const outputDir = pathutil.join(os.tmpdir(), "tourist-test-out");
 const repoDir = pathutil.join(outputDir, "repo");
 const tourist = new Tourist();
+tourist.vp = new MockProvider();
 tourist.mapConfig("repo", repoDir);
 
 function deleteFolderRecursive(path: string) {
@@ -83,7 +104,7 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null, "unversioned");
+    await tourist.add(tf, stop, null);
     const tour = await tourist.resolve(tf);
 
     expect(tour.stops[0]).to.deep.equal(stop);
@@ -102,9 +123,9 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null, "unversioned");
+    await tourist.add(tf, stop, null);
     await tourist.resolve(tf);
-    await tourist.add(tf, stop, null, "unversioned");
+    await tourist.add(tf, stop, null);
     const tour = await tourist.resolve(tf);
 
     expect(tour.stops[1]).to.deep.equal(stop);
@@ -123,7 +144,7 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null, "unversioned");
+    await tourist.add(tf, stop, null);
     await tourist.remove(tf, 0);
     const tour = await tourist.resolve(tf);
 
@@ -142,7 +163,7 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null, "unversioned");
+    await tourist.add(tf, stop, null);
     await tourist.edit(tf, 0, { body: "Edited body", title: "Edited title" });
     const tour = await tourist.resolve(tf);
 
@@ -152,9 +173,7 @@ suite("tourist", () => {
 
   test("move a tourstop", async () => {
     const file = pathutil.join(repoDir, "my-file.txt");
-    fs.writeFileSync(
-      file, "Hello, world!\nHello, world!\nHello, world!",
-    );
+    fs.writeFileSync(file, "Hello, world!\nHello, world!\nHello, world!");
 
     const stop = {
       absPath: file,
@@ -164,13 +183,8 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null, "unversioned");
-    await tourist.move(
-      tf,
-      0,
-      { absPath: file, line: 3 },
-      "unversioned",
-    );
+    await tourist.add(tf, stop, null);
+    await tourist.move(tf, 0, { absPath: file, line: 3 });
     const tour = await tourist.resolve(tf);
 
     expect(isNotBroken(tour.stops[0]));
@@ -180,9 +194,7 @@ suite("tourist", () => {
 
   test("move to bad location is OK", async () => {
     const file = pathutil.join(repoDir, "my-file.txt");
-    fs.writeFileSync(
-      file, "Hello, world!\nHello, world!\nHello, world!",
-    );
+    fs.writeFileSync(file, "Hello, world!\nHello, world!\nHello, world!");
 
     const stop = {
       absPath: file,
@@ -192,14 +204,9 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null, "unversioned");
+    await tourist.add(tf, stop, null);
     try {
-      await tourist.move(
-        tf,
-        0,
-        { absPath: file, line: 42 },
-        "unversioned",
-      );
+      await tourist.move(tf, 0, { absPath: file, line: 42 });
       expect(false);
     } catch (e) {
       expect(e.message).to.contain("Invalid");
@@ -218,23 +225,22 @@ suite("tourist", () => {
       pathutil.join(repoDir, "my-file-3.txt"),
     ];
     for (const file of files) {
-      fs.writeFileSync(
-        file, "Hello, world!\nHello, world!\nHello, world!",
-      );
+      fs.writeFileSync(file, "Hello, world!\nHello, world!\nHello, world!");
     }
-    const stops: AbsoluteTourStop[] =
-      ["snap", "crackle", "pop"].map((stopTitle, idx) => {
+    const stops: AbsoluteTourStop[] = ["snap", "crackle", "pop"].map(
+      (stopTitle, idx) => {
         return {
           absPath: files[idx],
           body: `Body of ${stopTitle}`,
           line: idx + 1,
           title: stopTitle,
         };
-      });
+      },
+    );
 
     const tf = await tourist.init();
     for (const stop of stops) {
-      await tourist.add(tf, stop, null, "unversioned");
+      await tourist.add(tf, stop, null);
     }
     await tourist.scramble(tf, [1, 2, 0]);
     const tour = await tourist.resolve(tf);
