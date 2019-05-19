@@ -18,12 +18,11 @@ class MockProvider implements VersionProvider {
   public async getChangesForFile(
     // tslint:disable variable-name
     _version: string,
-    // tslint:disable variable-name
-    _path: RelativePath,
+    path: RelativePath,
     // tslint:disable variable-name
     _repoPath: AbsolutePath,
   ): Promise<FileChanges | null> {
-    return new FileChanges([], [], new Map(), "");
+    return new FileChanges([], [], new Map(), path.path);
   }
 }
 

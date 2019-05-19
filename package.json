@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "repository": "github:hgoldstein95/tourist",
   "scripts": {
-    "test": "tsc && mocha --inline-diffs -c --require ts-node/register test/tourist.test.ts test/gitVersion.test.ts",
+    "test": "tsc && mocha --inline-diffs -c --require ts-node/register test/tourist.test.ts test/gitProvider.test.ts",
     "build": "tsc"
   },
   "author": "Harrison Goldstein <hgoldstein95@gmail.com>",

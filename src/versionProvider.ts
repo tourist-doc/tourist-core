@@ -13,64 +13,37 @@ export interface VersionProvider {
     version: string,
     path: RelativePath,
     repoPath: AbsolutePath,
+    includeWorkingCopy: boolean,
   ): Promise<FileChanges | null>;
 }
 
 export class GitProvider implements VersionProvider {
   public async getCurrentVersion(path: AbsolutePath): Promise<string | null> {
-    return await this.headCommit(path);
-  }
-
-  public async getChangesForFile(
-    version: string,
-    path: RelativePath,
-    repoPath: AbsolutePath,
-  ): Promise<FileChanges | null> {
-    return await this.gitDiffFile(version, path, repoPath);
-  }
-
-  public async git(
-    path: AbsolutePath,
-    command: string,
-    args: string[],
-  ): Promise<string> {
-    const fullCommand = `git -C ${path.path} ${command} ${args.join(" ")}`;
-    const res = await exec(fullCommand);
-    if (res.stderr) {
-      throw new Error(res.stderr);
-    }
-    return res.stdout;
-  }
-
-  private async headCommit(repoPath: AbsolutePath): Promise<string | null> {
     try {
-      const commit = await this.git(repoPath, "rev-parse", ["HEAD"]);
+      const commit = await this.git(path, "rev-parse", ["HEAD"]);
       return commit.trim();
     } catch (_) {
       return null;
     }
   }
 
-  private async gitDiffFile(
+  public async getChangesForFile(
     commit: string,
     path: RelativePath,
     repoPath: AbsolutePath,
+    includeWorkingCopy: boolean,
   ): Promise<FileChanges | null> {
-    const diff = await this.git(repoPath, "diff", [
-      "--minimal",
-      "--ignore-space-at-eol",
-      "-M",
-      `${commit}...`,
-      "--",
-      ".",
-    ]);
+    const diff = await (includeWorkingCopy
+      ? this.diffWithWorkingCopy(commit, repoPath)
+      : this.diffWithHead(commit, repoPath));
+
     const file = parseDiff(diff).find((f) => f.from === path.path);
 
     const moves = new Map();
     const additions = [] as number[];
     const deletions = [] as number[];
 
-    if (!file || file.from !== path.path) {
+    if (file === undefined || file.from !== path.path) {
       return new FileChanges(additions, deletions, moves, path.path);
     }
 
@@ -95,5 +68,46 @@ export class GitProvider implements VersionProvider {
     }
 
     return new FileChanges(additions, deletions, moves, file.to || file.from);
+  }
+
+  public async git(
+    path: AbsolutePath,
+    command: string,
+    args: string[],
+  ): Promise<string> {
+    const fullCommand = `git -C ${path.path} ${command} ${args.join(" ")}`;
+    const res = await exec(fullCommand);
+    if (res.stderr) {
+      throw new Error(res.stderr);
+    }
+    return res.stdout;
+  }
+
+  private async diffWithHead(
+    commit: string,
+    repoPath: AbsolutePath,
+  ): Promise<string> {
+    return this.git(repoPath, "diff", [
+      "--minimal",
+      "--ignore-space-at-eol",
+      "-M",
+      `${commit}...`,
+      "--",
+      ".",
+    ]);
+  }
+
+  private async diffWithWorkingCopy(
+    commit: string,
+    repoPath: AbsolutePath,
+  ): Promise<string> {
+    return this.git(repoPath, "diff", [
+      "--minimal",
+      "--ignore-space-at-eol",
+      "-M",
+      `${commit}`,
+      "--",
+      ".",
+    ]);
   }
 }
