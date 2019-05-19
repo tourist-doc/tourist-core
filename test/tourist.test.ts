@@ -1,6 +1,6 @@
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
-import fs from "fs";
+import fs from "fs-extra";
 import { suite, test } from "mocha";
 import os from "os";
 import * as pathutil from "path";
@@ -45,36 +45,22 @@ const tourist = new Tourist();
 tourist.vp = new MockProvider();
 tourist.mapConfig("repo", repoDir);
 
-function deleteFolderRecursive(path: string) {
-  if (fs.existsSync(path)) {
-    fs.readdirSync(path).forEach((file) => {
-      const curPath = pathutil.join(path, file);
-      if (fs.lstatSync(curPath).isDirectory()) {
-        deleteFolderRecursive(curPath);
-      } else {
-        fs.unlinkSync(curPath);
-      }
-    });
-    fs.rmdirSync(path);
-  }
-}
-
 suite("tourist", () => {
-  before("make sure we're in a clean state", () => {
-    deleteFolderRecursive(outputDir);
+  before("make sure we're in a clean state", async () => {
+    await fs.remove(outputDir);
   });
 
-  after("make sure we clean up", () => {
-    deleteFolderRecursive(outputDir);
+  after("make sure we clean up", async () => {
+    await fs.remove(outputDir);
   });
 
-  beforeEach("create necessary directories", () => {
-    fs.mkdirSync(outputDir);
-    fs.mkdirSync(repoDir);
+  beforeEach("create necessary directories", async () => {
+    await fs.mkdir(outputDir);
+    await fs.mkdir(repoDir);
   });
 
-  afterEach("remove directories", () => {
-    deleteFolderRecursive(outputDir);
+  afterEach("remove directories", async () => {
+    await fs.remove(outputDir);
   });
 
   test("init", async () => {
@@ -103,7 +89,7 @@ suite("tourist", () => {
 
   test("add a tourstop", async () => {
     const file = pathutil.join(repoDir, "my-file.txt");
-    fs.writeFileSync(file, "Hello, world!");
+    await fs.writeFile(file, "Hello, world!");
 
     const stop = {
       absPath: file,
@@ -122,7 +108,7 @@ suite("tourist", () => {
 
   test("add two tourstops", async () => {
     const file = pathutil.join(repoDir, "my-file.txt");
-    fs.writeFileSync(file, "Hello, world!");
+    await fs.writeFile(file, "Hello, world!");
 
     const stop = {
       absPath: file,
@@ -143,7 +129,7 @@ suite("tourist", () => {
 
   test("remove a tourstop", async () => {
     const file = pathutil.join(repoDir, "my-file.txt");
-    fs.writeFileSync(file, "Hello, world!");
+    await fs.writeFile(file, "Hello, world!");
 
     const stop = {
       absPath: file,
@@ -162,7 +148,7 @@ suite("tourist", () => {
 
   test("edit a tourstop", async () => {
     const file = pathutil.join(repoDir, "my-file.txt");
-    fs.writeFileSync(file, "Hello, world!");
+    await fs.writeFile(file, "Hello, world!");
 
     const stop = {
       absPath: file,
@@ -182,7 +168,7 @@ suite("tourist", () => {
 
   test("move a tourstop", async () => {
     const file = pathutil.join(repoDir, "my-file.txt");
-    fs.writeFileSync(file, "Hello, world!\nHello, world!\nHello, world!");
+    await fs.writeFile(file, "Hello, world!\nHello, world!\nHello, world!");
 
     const stop = {
       absPath: file,
@@ -203,7 +189,7 @@ suite("tourist", () => {
 
   test("move to bad location is OK", async () => {
     const file = pathutil.join(repoDir, "my-file.txt");
-    fs.writeFileSync(file, "Hello, world!\nHello, world!\nHello, world!");
+    await fs.writeFile(file, "Hello, world!\nHello, world!\nHello, world!");
 
     const stop = {
       absPath: file,
@@ -234,7 +220,7 @@ suite("tourist", () => {
       pathutil.join(repoDir, "my-file-3.txt"),
     ];
     for (const file of files) {
-      fs.writeFileSync(file, "Hello, world!\nHello, world!\nHello, world!");
+      await fs.writeFile(file, "Hello, world!\nHello, world!\nHello, world!");
     }
     const stops: AbsoluteTourStop[] = ["snap", "crackle", "pop"].map(
       (stopTitle, idx) => {

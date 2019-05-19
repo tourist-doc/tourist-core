@@ -1,6 +1,6 @@
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
-import fs from "fs";
+import fs from "fs-extra";
 import { suite, test } from "mocha";
 import os from "os";
 import * as pathutil from "path";
@@ -17,18 +17,9 @@ const testDataDir = pathutil.join(__dirname, "data");
 const repoDir = pathutil.join(outputDir, "repo");
 const gp = new GitProvider();
 
-function deleteFolderRecursive(path: string) {
-  if (fs.existsSync(path)) {
-    fs.readdirSync(path).forEach((file) => {
-      const curPath = pathutil.join(path, file);
-      if (fs.lstatSync(curPath).isDirectory()) {
-        deleteFolderRecursive(curPath);
-      } else {
-        fs.unlinkSync(curPath);
-      }
-    });
-    fs.rmdirSync(path);
-  }
+async function copyFile(src: string, dest: string) {
+  const buffer = await fs.readFile(src);
+  await fs.writeFile(dest, buffer.toString());
 }
 
 suite("git-provider", () => {
@@ -44,17 +35,17 @@ suite("git-provider", () => {
       .then((x) => x.trim());
   }
 
-  before("make sure we're in a clean state", () => {
-    deleteFolderRecursive(outputDir);
+  before("make sure we're in a clean state", async () => {
+    await fs.remove(outputDir);
   });
 
-  after("make sure we clean up", () => {
-    deleteFolderRecursive(outputDir);
+  after("make sure we clean up", async () => {
+    await fs.remove(outputDir);
   });
 
   beforeEach("create necessary directories", async () => {
-    fs.mkdirSync(outputDir);
-    fs.mkdirSync(repoDir);
+    await fs.mkdir(outputDir);
+    await fs.mkdir(repoDir);
 
     repository = new AbsolutePath(repoDir);
     await gp.git(repository, "init", []);
@@ -62,24 +53,24 @@ suite("git-provider", () => {
     file = pathutil.join(repoDir, fileName);
   });
 
-  afterEach("remove directories", () => {
-    deleteFolderRecursive(outputDir);
+  afterEach("remove directories", async () => {
+    await fs.remove(outputDir);
   });
 
   test("type equal in same commit", async () => {
-    fs.writeFileSync(file, "Hello, world!");
+    await fs.writeFile(file, "Hello, world!");
     await commitToRepo("Initial commit");
     const version1 = await gp.getCurrentVersion(new AbsolutePath(repoDir));
-    fs.writeFileSync(file, "Hello, world!\nHello world again!");
+    await fs.writeFile(file, "Hello, world!\nHello world again!");
     const version2 = await gp.getCurrentVersion(new AbsolutePath(repoDir));
     expect(version1! === version2!);
   });
 
   test("type not equal in different commits", async () => {
-    fs.writeFileSync(file, "Hello, world!");
+    await fs.writeFile(file, "Hello, world!");
     await commitToRepo("Initial commit");
     const version1 = await gp.getCurrentVersion(new AbsolutePath(repoDir));
-    fs.writeFileSync(file, "Hello, world!\nHello world again!");
+    await fs.writeFile(file, "Hello, world!\nHello world again!");
     await commitToRepo("Second commit");
     const version2 = await gp.getCurrentVersion(new AbsolutePath(repoDir));
     // tslint:disable-next-line: no-unused-expression
@@ -87,9 +78,9 @@ suite("git-provider", () => {
   });
 
   test("files change correctly: small file", async () => {
-    fs.writeFileSync(file, "Hello, world!");
+    await fs.writeFile(file, "Hello, world!");
     const commit = await commitToRepo("Initial commit");
-    fs.writeFileSync(file, "Line before\nHello, world!\nLine after");
+    await fs.writeFile(file, "Line before\nHello, world!\nLine after");
     await commitToRepo("Second commit");
 
     const changes = await gp.getChangesForFile(
@@ -104,14 +95,14 @@ suite("git-provider", () => {
   });
 
   test("files change correctly: bigger file", async () => {
-    fs.copyFileSync(pathutil.join(testDataDir, "many-lines.txt"), file);
+    await copyFile(pathutil.join(testDataDir, "many-lines.txt"), file);
     const commit = await commitToRepo("Initial commit");
-    let contents = fs
-      .readFileSync(file)
+    let contents = await fs
+      .readFile(file)
       .toString()
       .split("\n");
     contents = ["A new line!", ...contents];
-    fs.writeFileSync(file, contents.join("\n"));
+    await fs.writeFile(file, contents.join("\n"));
     await commitToRepo("Second commit");
 
     const changes = await gp.getChangesForFile(
@@ -128,9 +119,9 @@ suite("git-provider", () => {
   });
 
   test("files change correctly: target-in-middle", async () => {
-    fs.copyFileSync(pathutil.join(testDataDir, "target-in-middle.txt"), file);
+    await copyFile(pathutil.join(testDataDir, "target-in-middle.txt"), file);
     const commit = await commitToRepo("Initial commit");
-    fs.copyFileSync(
+    await copyFile(
       pathutil.join(testDataDir, "target-in-middle-after.txt"),
       file,
     );
@@ -150,9 +141,9 @@ suite("git-provider", () => {
   test("renames work", async () => {
     const otherFileName = "other-file.txt";
     const otherFile = pathutil.join(repoDir, otherFileName);
-    fs.writeFileSync(file, "Hello, world!");
+    await fs.writeFile(file, "Hello, world!");
     const commit = await commitToRepo("Initial commit");
-    fs.renameSync(file, otherFile);
+    await fs.rename(file, otherFile);
     await commitToRepo("Second commit");
 
     const changes = await gp.getChangesForFile(
@@ -166,7 +157,7 @@ suite("git-provider", () => {
   });
 
   test("serde git tour file", async () => {
-    fs.writeFileSync(file, "Hello, world!");
+    await fs.writeFile(file, "Hello, world!");
     await commitToRepo("Initial commit");
 
     const tourist = new Tourist();
@@ -192,12 +183,12 @@ suite("git-provider", () => {
   });
 
   test("add must be done on same commit", async () => {
-    fs.writeFileSync(file, "Hello, world!");
+    await fs.writeFile(file, "Hello, world!");
     await commitToRepo("Initial commit");
     const file1 = pathutil.join(repoDir, "my-file-1.txt");
-    fs.writeFileSync(file1, "Hello, world!");
+    await fs.writeFile(file1, "Hello, world!");
     const file2 = pathutil.join(repoDir, "my-file-2.txt");
-    fs.writeFileSync(file2, "Hello, world!");
+    await fs.writeFile(file2, "Hello, world!");
 
     const stop1 = {
       absPath: file1,
@@ -229,7 +220,7 @@ suite("git-provider", () => {
   });
 
   test("deltas work correctly", async () => {
-    fs.writeFileSync(file, "Hello, world!");
+    await fs.writeFile(file, "Hello, world!");
     await commitToRepo("Initial commit");
 
     const tourist = new Tourist();
@@ -250,14 +241,14 @@ suite("git-provider", () => {
       expect((tour.stops[0] as AbsoluteTourStop).line).to.equal(1);
     }
 
-    fs.writeFileSync(file, "Some new stuff\nother stuff\nHello, world!");
+    await fs.writeFile(file, "Some new stuff\nother stuff\nHello, world!");
 
     {
       const tour = await tourist.resolve(tf);
       expect((tour.stops[0] as AbsoluteTourStop).line).to.equal(3);
     }
 
-    fs.writeFileSync(file, "Hello, world!\nSome other stuff");
+    await fs.writeFile(file, "Hello, world!\nSome other stuff");
 
     {
       const tour = await tourist.resolve(tf);

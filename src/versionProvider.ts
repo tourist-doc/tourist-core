@@ -38,7 +38,7 @@ export class GitProvider implements VersionProvider {
   ): Promise<string> {
     const fullCommand = `git -C ${path.path} ${command} ${args.join(" ")}`;
     const res = await exec(fullCommand);
-    if (res.stderr) {
+    if (res.stderr && !res.stderr.startsWith("warning: LF")) {
       throw new Error(res.stderr);
     }
     return res.stdout;
