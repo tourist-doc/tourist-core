@@ -12,19 +12,27 @@ export function computeLineDelta(
   changes: FileChanges,
   line: number,
 ): number | null {
-  if (changes.deletions.includes(line)) { return null; }
-  if (changes.moves.has(line)) { return changes.moves.get(line)!; }
+  if (changes.deletions.includes(line)) {
+    return null;
+  }
+  if (changes.moves.has(line)) {
+    return changes.moves.get(line)!;
+  }
 
   line -= changes.deletions.length;
   for (const add of changes.additions.sort()) {
-    if (add < line) { line++; } else { break; }
+    if (add < line) {
+      line++;
+    } else {
+      break;
+    }
   }
   return line;
 }
 
 export type StableVersion =
-  { kind: "unversioned" } |
-  { kind: "git", commit: string };
+  | { kind: "unversioned" }
+  | { kind: "git"; commit: string };
 
 export function validStableVersion(obj: any): obj is StableVersion {
   try {
@@ -72,7 +80,9 @@ export async function getChangesForFile(
 }
 
 export function versionEq(v1: StableVersion, v2: StableVersion): boolean {
-  if (v1.kind !== v2.kind) { return false; }
+  if (v1.kind !== v2.kind) {
+    return false;
+  }
   switch (v1.kind) {
     case "git":
       return v1.commit === (v2 as any).commit;

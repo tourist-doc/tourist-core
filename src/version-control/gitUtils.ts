@@ -1,7 +1,4 @@
-import {
-  StableVersion,
-  FileChanges,
-} from "./stableVersion";
+import { StableVersion, FileChanges } from "./stableVersion";
 import { RelativePath, AbsolutePath } from "../paths";
 import child_process from "child_process";
 import util from "util";
@@ -15,10 +12,11 @@ export async function git(
   command: string,
   args: string[],
 ): Promise<string> {
-  const fullCommand =
-    `git -C ${path.path} ${command} ${args.join(" ")}`;
+  const fullCommand = `git -C ${path.path} ${command} ${args.join(" ")}`;
   const res = await exec(fullCommand);
-  if (res.stderr) { throw new Error(res.stderr); }
+  if (res.stderr) {
+    throw new Error(res.stderr);
+  }
   return res.stdout;
 }
 

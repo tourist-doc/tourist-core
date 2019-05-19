@@ -16,7 +16,6 @@ relevant functional components. A person implementing a complex feature or
 workflow can use a tour to solicit feedback from other people who are
 familiar to the codebase, but not that particular logical flow.
 
-
 ## Getting Started
 
 As of now, Tourist only available as a node module and an associated
@@ -25,28 +24,34 @@ extension for Visual Studio Code. The extension can be found at
 We plan on releasing a command-line tool in the near future that will provide
 an API that other edtiors can more easily use.
 
-
 ## Building
+
 The Tourist library can be built with
+
 ```bash
 npm run build
 ```
+
 and tested with
+
 ```bash
 npm test
 ```
-Make sure you've `npm install`ed the appropriate dependencies.
 
+Make sure you've `npm install`ed the appropriate dependencies.
 
 ## Library Usage
 
 The main way to interact with the Tourist library is via the `Tourist` class.
+
 ```typescript
 import { Tourist } from "tourist";
 const tourist = new Tourist();
 ```
+
 Alternatively, if you already have a serialized version of a tourist instance,
 you can construct a live instance with
+
 ```typescript
 const str = tourist.serialize();
 // ...
@@ -59,14 +64,17 @@ tourist uses to make tours more portable -- rather than specify that a tour
 goes to `/this/absolute/path/file.txt`, you can instead specify that a tour
 stop is in `file.txt` in the `foo` repository. Each user then individually
 tells tourist where `foo` is
+
 ```typescript
 tourist.mapConfig("foo", "/this/absolute/path");
 ```
 
 With mappings set, you can run
+
 ```typescript
 const tourFile = tourist.init("My First Tour");
 ```
+
 to create a new tour file, and then you're off to the races. You can use
 commands like `add`, `remove`, `edit`, `move`, and `scramble` to manipulate tour
 stops, and at the end you can use `resolve` to get a tour with absolute paths

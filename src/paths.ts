@@ -12,7 +12,9 @@ export class RelativePath {
 
   public toAbsolutePath(config: RepoIndex): AbsolutePath | null {
     const repoPath = config[this.repository];
-    if (repoPath === undefined) { return null; }
+    if (repoPath === undefined) {
+      return null;
+    }
     return new AbsolutePath(pathutil.join(repoPath, this.path));
   }
 }
@@ -26,8 +28,9 @@ export class AbsolutePath {
 
   public toRelativePath(config: RepoIndex): RelativePath | null {
     // Sort in ascending path length order so we always choose the longest path
-    const paths = Object.entries(config)
-      .sort((a, b) => a[1].length - b[1].length);
+    const paths = Object.entries(config).sort(
+      (a, b) => a[1].length - b[1].length,
+    );
 
     // Find appropriate repo and relative path, create tour stop
     let repository: string | null = null;
@@ -41,7 +44,9 @@ export class AbsolutePath {
         break;
       }
     }
-    if (repository === null || relPath === null) { return null; }
+    if (repository === null || relPath === null) {
+      return null;
+    }
 
     return new RelativePath(repository, relPath);
   }

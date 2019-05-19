@@ -79,15 +79,16 @@ export class Tourist {
     const [relStop, version] = await this.abstractStop(stop, versionMode);
 
     // Find the appropriate repo version in the tour file
-    const repoState = tf.repositories
-      .find((st) => st.repository === relStop.repository);
+    const repoState = tf.repositories.find(
+      (st) => st.repository === relStop.repository,
+    );
 
-    if (repoState && !versionEq(repoState.version, (version))) {
+    if (repoState && !versionEq(repoState.version, version)) {
       // Repo already versioned, versions disagree
       throw new TouristError(
         203,
         `Mismatched versions. Repository ${repoState.repository} is checked` +
-        ` out to the wrong version.`,
+          ` out to the wrong version.`,
         repoState.repository,
       );
     } else if (!repoState) {
@@ -133,16 +134,16 @@ export class Tourist {
    * @throws Error code(s): 0
    *  See the error-handling.md document for more information.
    */
-  public async edit(
-    tf: TourFile,
-    index: number,
-    stopEdit: TourStopEdit,
-  ) {
+  public async edit(tf: TourFile, index: number, stopEdit: TourStopEdit) {
     if (index >= tf.stops.length) {
       throw new TouristError(0, "Index out of bounds.");
     }
-    if (stopEdit.title) { tf.stops[index].title = stopEdit.title; }
-    if (stopEdit.body) { tf.stops[index].body = stopEdit.body; }
+    if (stopEdit.title) {
+      tf.stops[index].title = stopEdit.title;
+    }
+    if (stopEdit.body) {
+      tf.stops[index].body = stopEdit.body;
+    }
   }
 
   /**
@@ -167,7 +168,7 @@ export class Tourist {
     if (index >= tf.stops.length) {
       throw new TouristError(0, "Index out of bounds.");
     }
-    const stop = await this.resolveStop(tf.stops[index]) as AbsoluteTourStop;
+    const stop = (await this.resolveStop(tf.stops[index])) as AbsoluteTourStop;
     stop.absPath = stopPos.absPath;
     stop.line = stopPos.line;
     await this.add(tf, stop, index, versionMode);
@@ -203,50 +204,59 @@ export class Tourist {
   public async check(tf: TourFile): Promise<string[]> {
     const errors = [] as string[];
 
-    await Promise.all(tf.stops.map(async (stop, i) => {
-      const rel = new RelativePath(stop.repository, stop.relPath);
-      const abs = rel.toAbsolutePath(this.config);
+    await Promise.all(
+      tf.stops.map(async (stop, i) => {
+        const rel = new RelativePath(stop.repository, stop.relPath);
+        const abs = rel.toAbsolutePath(this.config);
 
-      try {
-        if (!abs) {
-          throw new TouristError(
-            200, `Repository ${stop.repository} is not mapped to a path.`, stop.repository,
-          );
-        }
+        try {
+          if (!abs) {
+            throw new TouristError(
+              200,
+              `Repository ${stop.repository} is not mapped to a path.`,
+              stop.repository,
+            );
+          }
 
-        await this.verifyLocation(abs, stop.line);  // might throw
+          await this.verifyLocation(abs, stop.line); // might throw
 
-        const state = tf.repositories
-          .find((s) => s.repository === stop.repository);
-        if (!state) {
-          throw new TouristError(
-            300, `No version for repository ${stop.repository}.`, stop.repository,
+          const state = tf.repositories.find(
+            (s) => s.repository === stop.repository,
           );
-        }
+          if (!state) {
+            throw new TouristError(
+              300,
+              `No version for repository ${stop.repository}.`,
+              stop.repository,
+            );
+          }
 
-        const currVersion = await getCurrentVersion(
-          state.versionMode,
-          this.getRepoPath(state.repository),
-        );
-        if (!currVersion) {
-          throw new TouristError(
-            202,
-            `Could not get current version for repository ${stop.repository}.`,
-            stop.repository,
+          const currVersion = await getCurrentVersion(
+            state.versionMode,
+            this.getRepoPath(state.repository),
           );
+          if (!currVersion) {
+            throw new TouristError(
+              202,
+              `Could not get current version for repository ${
+                stop.repository
+              }.`,
+              stop.repository,
+            );
+          }
+          if (!versionEq(state.version, currVersion)) {
+            throw new TouristError(
+              203,
+              `Mismatched versions. Repository ${state.repository} is checked` +
+                ` out to the wrong version.`,
+              state.repository,
+            );
+          }
+        } catch (e) {
+          errors.push(`Stop ${i}: ${e.message}`);
         }
-        if (!versionEq(state.version, currVersion)) {
-          throw new TouristError(
-            203,
-            `Mismatched versions. Repository ${state.repository} is checked` +
-            ` out to the wrong version.`,
-            state.repository,
-          );
-        }
-      } catch (e) {
-        errors.push(`Stop ${i}: ${e.message}`);
-      }
-    }));
+      }),
+    );
 
     return errors;
   }
@@ -265,13 +275,14 @@ export class Tourist {
    */
   public async refresh(tf: TourFile) {
     for (const stop of tf.stops) {
-      const repoState = tf.repositories.find((st) =>
-        st.repository === stop.repository,
-      );  // safe to bang here since `check` covers case
+      const repoState = tf.repositories.find(
+        (st) => st.repository === stop.repository,
+      ); // safe to bang here since `check` covers case
 
       if (!repoState) {
         throw new TouristError(
-          300, `No version for repository ${stop.repository}.`,
+          300,
+          `No version for repository ${stop.repository}.`,
           stop.repository,
         );
       }
@@ -285,7 +296,9 @@ export class Tourist {
         new RelativePath(stop.repository, stop.relPath),
         repoPath,
       );
-      if (!changes) { continue; }
+      if (!changes) {
+        continue;
+      }
 
       // Apply the changes to the stop
       const newLine = computeLineDelta(changes, stop.line);
@@ -299,10 +312,7 @@ export class Tourist {
     }
     for (const repo of tf.repositories) {
       const repoPath = this.getRepoPath(repo.repository);
-      const version = await getCurrentVersion(
-        repo.versionMode,
-        repoPath,
-      );
+      const version = await getCurrentVersion(repo.versionMode, repoPath);
       if (!version) {
         throw new TouristError(
           202,
@@ -417,12 +427,14 @@ export class Tourist {
       const data: Buffer = await af.readFile(path.path);
       if (line < 1 || line > data.toString().split("\n").length) {
         throw new TouristError(
-          101, `Invalid location. No line ${line} in ${path.path}.`,
+          101,
+          `Invalid location. No line ${line} in ${path.path}.`,
         );
       }
     } catch (e) {
       throw new TouristError(
-        100, `Invalid location. Could not read ${path.path}.`,
+        100,
+        `Invalid location. Could not read ${path.path}.`,
       );
     }
   }
@@ -434,7 +446,9 @@ export class Tourist {
     const absPath = relPath.toAbsolutePath(this.config);
     if (!absPath) {
       throw new TouristError(
-        200, `Repository ${stop.repository} is not mapped to a path.`, stop.repository,
+        200,
+        `Repository ${stop.repository} is not mapped to a path.`,
+        stop.repository,
       );
     }
     if (stop.line === 0 || absPath.path === "") {
@@ -456,7 +470,8 @@ export class Tourist {
     const relPath = absPath.toRelativePath(this.config);
     if (!relPath) {
       throw new TouristError(
-        201, `Path ${absPath.path} is not mapped as a repository.`,
+        201,
+        `Path ${absPath.path} is not mapped as a repository.`,
       );
     }
 
@@ -473,7 +488,8 @@ export class Tourist {
     if (!version) {
       throw new TouristError(
         202,
-        `Could not get current version for repository ${relPath.repository}.`, relPath.repository,
+        `Could not get current version for repository ${relPath.repository}.`,
+        relPath.repository,
       );
     }
 
@@ -484,7 +500,9 @@ export class Tourist {
     const path = this.config[repo];
     if (!path) {
       throw new TouristError(
-        200, `Repository ${repo} is not mapped to a path.`, repo,
+        200,
+        `Repository ${repo} is not mapped to a path.`,
+        repo,
       );
     }
     return new AbsolutePath(path);
