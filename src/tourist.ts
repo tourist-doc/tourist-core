@@ -29,11 +29,15 @@ export class Tourist {
    *
    * @param title The name of the tour to be created.
    */
-  public async init(title: string = "Tour"): Promise<TourFile> {
+  public async init(
+    title: string = "Tour",
+    description: string = "",
+  ): Promise<TourFile> {
     return {
       repositories: [],
       stops: [],
       title,
+      description,
       version: "0.10.0",
     };
   }
@@ -70,7 +74,9 @@ export class Tourist {
   ) {
     // Make sure file exists and line is valid (might throw error)
     await this.verifyLocation(new AbsolutePath(stop.absPath), stop.line);
-    await this.refresh(tf);
+    for (const repo of tf.repositories) {
+      await this.refresh(tf, repo.repository);
+    }
 
     // Get relative stop, current version of the repo (might throw error)
     const [relStop, version] = await this.abstractStop(stop);
@@ -263,38 +269,39 @@ export class Tourist {
    * @throws Error code(s): 200, 300
    *  See the error-handling.md document for more information.
    */
-  public async refresh(tf: TourFile) {
-    const versions = new Map();
-    for (const repo of tf.repositories) {
-      const repoPath = this.getRepoPath(repo.repository);
-      const version = await this.vp.getCurrentVersion(repoPath);
-      if (!version) {
-        throw new TouristError(
-          202,
-          `Could not get current version for repository ${repo.repository}.`,
-          repo.repository,
-        );
-      }
-      versions.set(repo.repository, version);
+  public async refresh(tf: TourFile, repository: string) {
+    const repoPath = this.getRepoPath(repository);
+
+    // Find the version of the repo in the file system
+    const currVersion = await this.vp.getCurrentVersion(repoPath);
+    if (!currVersion) {
+      throw new TouristError(
+        202,
+        `Could not get current version for repository ${repository}.`,
+        repository,
+      );
+    }
+
+    // Find the state of the repository in the tour file
+    const repoState = tf.repositories.find(
+      (st) => st.repository === repository,
+    );
+    if (!repoState) {
+      throw new TouristError(
+        300,
+        `No version for repository ${repository}.`,
+        repository,
+      );
+    } else if (repoState.commit === currVersion) {
+      // If repository is already up to date, don't do anything
+      return;
     }
 
     for (const stop of tf.stops) {
-      const repoState = tf.repositories.find(
-        (st) => st.repository === stop.repository,
-      );
-
-      if (!repoState) {
-        throw new TouristError(
-          300,
-          `No version for repository ${stop.repository}.`,
-          stop.repository,
-        );
-      } else if (repoState.commit === versions.get(repoState.repository)) {
+      // Skip if the stop isn't in this repository
+      if (stop.repository !== repository) {
         continue;
       }
-
-      // Find the path to the repo
-      const repoPath = this.getRepoPath(repoState.repository);
 
       // Compute changes to the file
       const changes: FileChanges | null = await this.vp.getChangesForFile(
@@ -316,9 +323,8 @@ export class Tourist {
         stop.relPath = "";
       }
     }
-    for (const repo of tf.repositories) {
-      repo.commit = versions.get(repo.repository);
-    }
+
+    repoState.commit = currVersion;
   }
 
   /**
