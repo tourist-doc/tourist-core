@@ -18,8 +18,8 @@ const repoDir = pathutil.join(outputDir, "repo");
 const gp = new GitProvider();
 
 async function copyFile(src: string, dest: string) {
-  const buffer = await fs.readFile(src);
-  await fs.writeFile(dest, buffer.toString());
+  const s: string = await fs.readFile(src, "UTF-8");
+  await fs.writeFile(dest, s, "UTF-8");
 }
 
 suite("git-provider", () => {
@@ -97,10 +97,7 @@ suite("git-provider", () => {
   test("files change correctly: bigger file", async () => {
     await copyFile(pathutil.join(testDataDir, "many-lines.txt"), file);
     const commit = await commitToRepo("Initial commit");
-    let contents = await fs
-      .readFile(file)
-      .toString()
-      .split("\n");
+    let contents = (await fs.readFile(file, "UTF-8")).split("\n");
     contents = ["A new line!", ...contents];
     await fs.writeFile(file, contents.join("\n"));
     await commitToRepo("Second commit");
