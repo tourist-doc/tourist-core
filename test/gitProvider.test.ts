@@ -165,6 +165,7 @@ suite("git-provider", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
+      childStops: [],
     };
 
     const tf = await tourist.init();
@@ -192,12 +193,14 @@ suite("git-provider", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
+      childStops: [],
     };
     const stop2 = {
       absPath: file2,
       body: "My test body",
       line: 1,
       title: "My test title",
+      childStops: [],
     };
 
     const tourist = new Tourist();
@@ -228,6 +231,7 @@ suite("git-provider", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
+      childStops: [],
     };
 
     const tf = await tourist.init();
@@ -265,6 +269,7 @@ suite("git-provider", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
+      childStops: [],
     };
 
     const tf = await tourist.init();

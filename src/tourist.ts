@@ -34,6 +34,7 @@ export class Tourist {
     description: string = "",
   ): Promise<TourFile> {
     return {
+      id: title,
       repositories: [],
       stops: [],
       title,
@@ -50,6 +51,15 @@ export class Tourist {
    */
   public async rename(tf: TourFile, name: string) {
     tf.title = name;
+  }
+
+  /**
+   * Edits a tour's description.
+   * @param tf
+   * @param description The new description for the tour.
+   */
+  public async editDescription(tf: TourFile, description: string) {
+    tf.description = description;
   }
 
   /**
@@ -170,6 +180,14 @@ export class Tourist {
     stop.line = stopPos.line;
     await this.add(tf, stop, index);
     await this.remove(tf, index + 1);
+  }
+
+  public async link(
+    tf: TourFile,
+    index: number,
+    childStop: { tourId: string; stopNum: number },
+  ) {
+    tf.stops[index].childStops.push(childStop);
   }
 
   /**
@@ -454,7 +472,7 @@ export class Tourist {
         stop.repository,
       );
     }
-    const broken = { body: stop.body, title: stop.title };
+    const broken = { ...stop };
     const changes = await this.vp.getDirtyChangesForFile(
       commit,
       new RelativePath(stop.repository, stop.relPath),
@@ -487,6 +505,7 @@ export class Tourist {
       body: stop.body,
       line: newLine,
       title: stop.title,
+      childStops: stop.childStops,
     };
   }
 
@@ -502,12 +521,13 @@ export class Tourist {
       );
     }
 
-    const tourStop = {
+    const tourStop: TourStop = {
       body: stop.body,
       line: stop.line,
       relPath: relPath.path,
       repository: relPath.repository,
       title: stop.title,
+      childStops: stop.childStops,
     };
 
     const repoPath = this.getRepoPath(relPath.repository);

@@ -96,6 +96,7 @@ suite("tourist", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
+      childStops: [],
     };
 
     const tf = await tourist.init();
@@ -115,6 +116,7 @@ suite("tourist", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
+      childStops: [],
     };
 
     const tf = await tourist.init();
@@ -136,6 +138,7 @@ suite("tourist", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
+      childStops: [],
     };
 
     const tf = await tourist.init();
@@ -155,6 +158,7 @@ suite("tourist", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
+      childStops: [],
     };
 
     const tf = await tourist.init();
@@ -175,6 +179,7 @@ suite("tourist", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
+      childStops: [],
     };
 
     const tf = await tourist.init();
@@ -196,6 +201,7 @@ suite("tourist", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
+      childStops: [],
     };
 
     const tf = await tourist.init();
@@ -229,6 +235,7 @@ suite("tourist", () => {
           body: `Body of ${stopTitle}`,
           line: idx + 1,
           title: stopTitle,
+          childStops: [],
         };
       },
     );

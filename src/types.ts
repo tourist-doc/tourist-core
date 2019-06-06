@@ -4,6 +4,7 @@ export interface TourStop {
   relPath: string;
   repository: string;
   title: string;
+  childStops: Array<{ tourId: string; stopNum: number }>;
 }
 
 export interface AbsoluteTourStop {
@@ -11,11 +12,13 @@ export interface AbsoluteTourStop {
   body?: string;
   line: number;
   title: string;
+  childStops: Array<{ tourId: string; stopNum: number }>;
 }
 
 export interface BrokenTourStop {
   body?: string;
   title: string;
+  childStops: Array<{ tourId: string; stopNum: number }>;
 }
 
 export function isNotBroken(
@@ -40,6 +43,7 @@ export interface RepoState {
 }
 
 export interface TourFile {
+  id: string;
   repositories: RepoState[];
   stops: TourStop[];
   title: string;
