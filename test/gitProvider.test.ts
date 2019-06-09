@@ -290,4 +290,37 @@ suite("git-provider", () => {
       expect((tour.stops[0] as AbsoluteTourStop).line).to.equal(8);
     }
   });
+
+  test("adding to a dirty file works", async () => {
+    fs.writeFileSync(file, "Hello, world!\nGoodbye world!");
+    await commitToRepo("Initial commit");
+
+    const tourist = new Tourist();
+    tourist.mapConfig("repo", repoDir);
+
+    fs.writeFileSync(file, "\n\n\n\n\n\n\nHello, world!");
+
+    const stop = {
+      absPath: file,
+      body: "My test body",
+      line: 8,
+      title: "My test title",
+      childStops: [],
+    };
+
+    const tf = await tourist.init();
+    await tourist.add(tf, stop, null);
+
+    {
+      const tour = await tourist.resolve(tf);
+      expect((tour.stops[0] as AbsoluteTourStop).line).to.equal(8);
+    }
+
+    fs.writeFileSync(file, "Hello, world!\nGoodbye world!");
+
+    {
+      const tour = await tourist.resolve(tf);
+      expect((tour.stops[0] as AbsoluteTourStop).line).to.equal(1);
+    }
+  });
 });

@@ -34,4 +34,29 @@ export class FileChanges {
     }
     return line;
   }
+
+  public undoDelta(line: number): number | null {
+    if (this.additions.includes(line)) {
+      return null;
+    }
+
+    const moves = new Map<number, number>();
+    this.moves.forEach((before, after) => {
+      moves.set(after, before);
+    });
+    if (moves.has(line)) {
+      return moves.get(line)!;
+    }
+
+    line -= this.additions.filter((add) => add < line).length;
+    for (const del of this.deletions.sort()) {
+      if (del < line) {
+        line++;
+      } else {
+        break;
+      }
+    }
+
+    return line;
+  }
 }

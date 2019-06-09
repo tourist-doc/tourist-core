@@ -10,6 +10,7 @@ import {
   BrokenTourStop,
   validTourFile,
   TouristError,
+  RepoState,
 } from "./types";
 import { VersionProvider, GitProvider } from "./versionProvider";
 import { RelativePath, AbsolutePath } from "./paths";
@@ -82,19 +83,38 @@ export class Tourist {
     stop: AbsoluteTourStop,
     index: number | null = null,
   ) {
+    const absPath = new AbsolutePath(stop.absPath);
     // Make sure file exists and line is valid (might throw error)
-    await this.verifyLocation(new AbsolutePath(stop.absPath), stop.line);
+    await this.verifyLocation(absPath, stop.line);
     for (const repo of tf.repositories) {
       await this.refresh(tf, repo.repository);
     }
 
-    // Get relative stop, current version of the repo (might throw error)
-    const [relStop, version] = await this.abstractStop(stop);
-
+    const relPath = absPath.toRelativePath(this.config)!;
     // Find the appropriate repo version in the tour file
     const repoState = tf.repositories.find(
-      (st) => st.repository === relStop.repository,
+      (st) => st.repository === relPath.repository,
     );
+
+    const repoPath = this.getRepoPath(relPath.repository);
+    const version = await this.vp.getCurrentVersion(repoPath);
+    if (!version) {
+      throw new TouristError(
+        202,
+        `Could not get current version for repository ${relPath.repository}.`,
+        relPath.repository,
+      );
+    }
+    if (!repoState) {
+      // Repo not versioned, add version
+      tf.repositories.push({
+        repository: relPath.repository,
+        commit: version,
+      });
+    }
+
+    // Get relative stop, current version of the repo (might throw error)
+    const relStop = await this.abstractStop(stop, repoState);
 
     if (repoState && repoState.commit !== version) {
       // Repo already versioned, versions disagree
@@ -104,12 +124,6 @@ export class Tourist {
           ` out to the wrong version.`,
         repoState.repository,
       );
-    } else if (!repoState) {
-      // Repo not versioned, add version
-      tf.repositories.push({
-        repository: relStop.repository,
-        commit: version,
-      });
     }
 
     // Insert stop into list
@@ -472,7 +486,7 @@ export class Tourist {
         stop.repository,
       );
     }
-    const broken = { ...stop };
+    const broken = { body: stop.body, title: stop.title, childStops: [] };
     const changes = await this.vp.getDirtyChangesForFile(
       commit,
       new RelativePath(stop.repository, stop.relPath),
@@ -496,22 +510,21 @@ export class Tourist {
         stop.repository,
       );
     }
-    if (stop.line === 0 || absPath.path === "") {
+    if (stop.line <= 0 || absPath.path === "") {
       return broken;
     }
 
     return {
       absPath: absPath.path,
-      body: stop.body,
       line: newLine,
-      title: stop.title,
-      childStops: stop.childStops,
+      ...broken,
     };
   }
 
   private async abstractStop(
     stop: AbsoluteTourStop,
-  ): Promise<[TourStop, string]> {
+    repoState?: RepoState,
+  ): Promise<TourStop> {
     const absPath = new AbsolutePath(stop.absPath);
     const relPath = absPath.toRelativePath(this.config);
     if (!relPath) {
@@ -521,7 +534,28 @@ export class Tourist {
       );
     }
 
-    const tourStop: TourStop = {
+    const repoPath = this.getRepoPath(relPath.repository);
+    let commit = repoState ? repoState.commit : undefined;
+    if (!repoState) {
+      const rs = await this.vp.getCurrentVersion(repoPath);
+      if (rs) {
+        commit = rs;
+      }
+    }
+
+    if (commit) {
+      // Compute changes to the file
+      const changes = await this.vp.getDirtyChangesForFile(
+        commit,
+        new RelativePath(relPath.repository, relPath.path),
+        repoPath,
+      );
+      if (changes) {
+        stop.line = changes.undoDelta(stop.line)!;
+      }
+    }
+
+    return {
       body: stop.body,
       line: stop.line,
       relPath: relPath.path,
@@ -529,18 +563,6 @@ export class Tourist {
       title: stop.title,
       childStops: stop.childStops,
     };
-
-    const repoPath = this.getRepoPath(relPath.repository);
-    const version = await this.vp.getCurrentVersion(repoPath);
-    if (!version) {
-      throw new TouristError(
-        202,
-        `Could not get current version for repository ${relPath.repository}.`,
-        relPath.repository,
-      );
-    }
-
-    return [tourStop, version];
   }
 
   private getRepoPath(repo: string): AbsolutePath {
