@@ -8,19 +8,24 @@ import {
   TourStopEdit,
   TourStopPos,
   BrokenTourStop,
-  validTourFile,
   TouristError,
-  RepoState,
+  StopLink,
 } from "./types";
 import { VersionProvider, GitProvider } from "./versionProvider";
 import { RelativePath, AbsolutePath } from "./paths";
 import { FileChanges } from "./fileChanges";
+import ser from "tourist-serialize";
+
+interface RepoState {
+  repository: string;
+  commit: string;
+}
 
 export class Tourist {
   public readonly config: RepoIndex;
   public vp: VersionProvider;
 
-  constructor(config: RepoIndex = {}) {
+  constructor(config: RepoIndex = { index: new Map() }) {
     this.config = config;
     this.vp = new GitProvider();
   }
@@ -30,17 +35,13 @@ export class Tourist {
    *
    * @param title The name of the tour to be created.
    */
-  public async init(
-    title: string = "Tour",
-    description: string = "",
-  ): Promise<TourFile> {
+  public async init(title: string, body: string = ""): Promise<TourFile> {
     return {
       id: title,
-      repositories: [],
+      repositories: new Map(),
       stops: [],
       title,
-      description,
-      version: "0.10.0",
+      body,
     };
   }
 
@@ -59,8 +60,8 @@ export class Tourist {
    * @param tf
    * @param description The new description for the tour.
    */
-  public async editDescription(tf: TourFile, description: string) {
-    tf.description = description;
+  public async editBody(tf: TourFile, body: string) {
+    tf.body = body;
   }
 
   /**
@@ -86,15 +87,14 @@ export class Tourist {
     const absPath = new AbsolutePath(stop.absPath);
     // Make sure file exists and line is valid (might throw error)
     await this.verifyLocation(absPath, stop.line);
-    for (const repo of tf.repositories) {
-      await this.refresh(tf, repo.repository);
+    for (const [repo] of tf.repositories) {
+      await this.refresh(tf, repo);
     }
 
     const relPath = absPath.toRelativePath(this.config)!;
     // Find the appropriate repo version in the tour file
-    const repoState = tf.repositories.find(
-      (st) => st.repository === relPath.repository,
-    );
+    const repository = relPath.repository;
+    let commit = tf.repositories.get(repository);
 
     const repoPath = this.getRepoPath(relPath.repository);
     const version = await this.vp.getCurrentVersion(repoPath);
@@ -105,24 +105,22 @@ export class Tourist {
         relPath.repository,
       );
     }
-    if (!repoState) {
+    if (!commit) {
       // Repo not versioned, add version
-      tf.repositories.push({
-        repository: relPath.repository,
-        commit: version,
-      });
+      tf.repositories.set(relPath.repository, version);
+      commit = version;
     }
 
     // Get relative stop, current version of the repo (might throw error)
-    const relStop = await this.abstractStop(stop, repoState);
+    const relStop = await this.abstractStop(stop, { repository, commit });
 
-    if (repoState && repoState.commit !== version) {
+    if (commit !== version) {
       // Repo already versioned, versions disagree
       throw new TouristError(
         203,
-        `Mismatched versions. Repository ${repoState.repository} is checked` +
-          ` out to the wrong version.`,
-        repoState.repository,
+        `Mismatched versions. Repository ${repository} is checked out to the ` +
+          `wrong version.`,
+        repository,
       );
     }
 
@@ -196,12 +194,8 @@ export class Tourist {
     await this.remove(tf, index + 1);
   }
 
-  public async link(
-    tf: TourFile,
-    index: number,
-    childStop: { tourId: string; stopNum: number },
-  ) {
-    tf.stops[index].childStops.push(childStop);
+  public async link(tf: TourFile, index: number, child: StopLink) {
+    tf.stops[index].children.push(child);
   }
 
   /**
@@ -249,9 +243,7 @@ export class Tourist {
 
           await this.verifyLocation(abs, stop.line); // might throw
 
-          const state = tf.repositories.find(
-            (s) => s.repository === stop.repository,
-          );
+          const state = tf.repositories.get(stop.repository);
           if (!state) {
             throw new TouristError(
               300,
@@ -261,7 +253,7 @@ export class Tourist {
           }
 
           const currVersion = await this.vp.getCurrentVersion(
-            this.getRepoPath(state.repository),
+            this.getRepoPath(stop.repository),
           );
           if (!currVersion) {
             throw new TouristError(
@@ -272,12 +264,12 @@ export class Tourist {
               stop.repository,
             );
           }
-          if (state.commit !== currVersion) {
+          if (state !== currVersion) {
             throw new TouristError(
               203,
-              `Mismatched versions. Repository ${state.repository} is checked` +
+              `Mismatched versions. Repository ${stop.repository} is checked` +
                 ` out to the wrong version.`,
-              state.repository,
+              stop.repository,
             );
           }
         } catch (e) {
@@ -315,16 +307,14 @@ export class Tourist {
     }
 
     // Find the state of the repository in the tour file
-    const repoState = tf.repositories.find(
-      (st) => st.repository === repository,
-    );
-    if (!repoState) {
+    const commit = tf.repositories.get(repository);
+    if (!commit) {
       throw new TouristError(
         300,
         `No version for repository ${repository}.`,
         repository,
       );
-    } else if (repoState.commit === currVersion) {
+    } else if (commit === currVersion) {
       // If repository is already up to date, don't do anything
       return;
     }
@@ -337,7 +327,7 @@ export class Tourist {
 
       // Compute changes to the file
       const changes: FileChanges | null = await this.vp.getChangesForFile(
-        repoState.commit,
+        commit,
         new RelativePath(stop.repository, stop.relPath),
         repoPath,
       );
@@ -356,7 +346,7 @@ export class Tourist {
       }
     }
 
-    repoState.commit = currVersion;
+    tf.repositories.set(repository, currVersion);
   }
 
   /**
@@ -394,15 +384,16 @@ export class Tourist {
    *  See the error-handling.md document for more information.
    */
   public deserializeTourFile(json: string): TourFile {
+    let obj;
     try {
-      const obj = JSON.parse(json);
-      if (!validTourFile(obj)) {
-        throw new TouristError(401, "Object is not a valid TourFile.");
-      }
-      return obj;
-    } catch (_) {
+      obj = JSON.parse(json);
+    } catch (e) {
       throw new TouristError(400, "Invalid JSON string.");
     }
+    if (!validTourFile(obj)) {
+      throw new TouristError(401, "Object is not a valid TourFile.");
+    }
+    return obj;
   }
 
   /**
@@ -412,7 +403,7 @@ export class Tourist {
    * @param path The path value.
    */
   public mapConfig(repo: string, path: string) {
-    this.config[repo] = path;
+    this.config.index.set(repo, path);
   }
 
   /**
@@ -421,7 +412,7 @@ export class Tourist {
    * @param repo The repository key.
    */
   public unmapConfig(repo: string) {
-    delete this.config[repo];
+    this.config.index.delete(repo);
   }
 
   /**
@@ -486,7 +477,12 @@ export class Tourist {
         stop.repository,
       );
     }
-    const broken = { body: stop.body, title: stop.title, childStops: [] };
+    const broken = {
+      body: stop.body,
+      title: stop.title,
+      children: [],
+      id: stop.id,
+    };
     const changes = await this.vp.getDirtyChangesForFile(
       commit,
       new RelativePath(stop.repository, stop.relPath),
@@ -561,12 +557,13 @@ export class Tourist {
       relPath: relPath.path,
       repository: relPath.repository,
       title: stop.title,
-      childStops: stop.childStops,
+      children: stop.children,
+      id: stop.id,
     };
   }
 
   private getRepoPath(repo: string): AbsolutePath {
-    const path = this.config[repo];
+    const path = this.config.index.get("repo");
     if (!path) {
       throw new TouristError(
         200,

@@ -165,10 +165,11 @@ suite("git-provider", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
-      childStops: [],
+      children: [],
+      id: "STOP_ID",
     };
 
-    const tf = await tourist.init();
+    const tf = await tourist.init("Tour");
     await tourist.add(tf, stop, null);
 
     let checkResults = await tourist.check(tf);
@@ -193,20 +194,22 @@ suite("git-provider", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
-      childStops: [],
+      children: [],
+      id: "STOP_ID",
     };
     const stop2 = {
       absPath: file2,
       body: "My test body",
       line: 1,
       title: "My test title",
-      childStops: [],
+      children: [],
+      id: "STOP_ID",
     };
 
     const tourist = new Tourist();
     tourist.mapConfig("repo", repoDir);
 
-    const tf = await tourist.init();
+    const tf = await tourist.init("Tour");
     await tourist.add(tf, stop1, null);
 
     await commitToRepo("Second commit");
@@ -231,10 +234,11 @@ suite("git-provider", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
-      childStops: [],
+      children: [],
+      id: "STOP_ID",
     };
 
-    const tf = await tourist.init();
+    const tf = await tourist.init("Tour");
     await tourist.add(tf, stop, null);
 
     {
@@ -269,10 +273,11 @@ suite("git-provider", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
-      childStops: [],
+      children: [],
+      id: "STOP_ID",
     };
 
-    const tf = await tourist.init();
+    const tf = await tourist.init("Tour");
     await tourist.add(tf, stop, null);
 
     fs.writeFileSync(file, "");
@@ -305,10 +310,11 @@ suite("git-provider", () => {
       body: "My test body",
       line: 8,
       title: "My test title",
-      childStops: [],
+      children: [],
+      id: "STOP_ID",
     };
 
-    const tf = await tourist.init();
+    const tf = await tourist.init("Tour");
     await tourist.add(tf, stop, null);
 
     {

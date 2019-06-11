@@ -96,10 +96,11 @@ suite("tourist", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
-      childStops: [],
+      children: [],
+      id: "STOP_ID",
     };
 
-    const tf = await tourist.init();
+    const tf = await tourist.init("Tour");
     await tourist.add(tf, stop, null);
     const tour = await tourist.resolve(tf);
 
@@ -116,10 +117,11 @@ suite("tourist", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
-      childStops: [],
+      children: [],
+      id: "STOP_ID",
     };
 
-    const tf = await tourist.init();
+    const tf = await tourist.init("Tour");
     await tourist.add(tf, stop, null);
     await tourist.resolve(tf);
     await tourist.add(tf, stop, null);
@@ -138,10 +140,11 @@ suite("tourist", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
-      childStops: [],
+      children: [],
+      id: "STOP_ID",
     };
 
-    const tf = await tourist.init();
+    const tf = await tourist.init("Tour");
     await tourist.add(tf, stop, null);
     await tourist.remove(tf, 0);
     const tour = await tourist.resolve(tf);
@@ -158,10 +161,11 @@ suite("tourist", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
-      childStops: [],
+      children: [],
+      id: "STOP_ID",
     };
 
-    const tf = await tourist.init();
+    const tf = await tourist.init("Tour");
     await tourist.add(tf, stop, null);
     await tourist.edit(tf, 0, { body: "Edited body", title: "Edited title" });
     const tour = await tourist.resolve(tf);
@@ -179,10 +183,11 @@ suite("tourist", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
-      childStops: [],
+      children: [],
+      id: "STOP_ID",
     };
 
-    const tf = await tourist.init();
+    const tf = await tourist.init("Tour");
     await tourist.add(tf, stop, null);
     await tourist.move(tf, 0, { absPath: file, line: 3 });
     const tour = await tourist.resolve(tf);
@@ -201,10 +206,11 @@ suite("tourist", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
-      childStops: [],
+      children: [],
+      id: "STOP_ID",
     };
 
-    const tf = await tourist.init();
+    const tf = await tourist.init("Tour");
     await tourist.add(tf, stop, null);
     try {
       await tourist.move(tf, 0, { absPath: file, line: 42 });
@@ -235,12 +241,13 @@ suite("tourist", () => {
           body: `Body of ${stopTitle}`,
           line: idx + 1,
           title: stopTitle,
-          childStops: [],
+          children: [],
+          id: "STOP_ID",
         };
       },
     );
 
-    const tf = await tourist.init();
+    const tf = await tourist.init("Tour");
     for (const stop of stops) {
       await tourist.add(tf, stop, null);
     }

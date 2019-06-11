@@ -1,24 +1,32 @@
+export interface StopLink {
+  tour: string;
+  stop: string;
+}
+
 export interface TourStop {
-  body?: string;
+  title: string;
+  body: string;
   line: number;
   relPath: string;
   repository: string;
-  title: string;
-  childStops: Array<{ tourId: string; stopNum: number }>;
+  children: StopLink[];
+  id: string;
 }
 
 export interface AbsoluteTourStop {
-  absPath: string;
-  body?: string;
-  line: number;
   title: string;
-  childStops: Array<{ tourId: string; stopNum: number }>;
+  body: string;
+  absPath: string;
+  line: number;
+  children: StopLink[];
+  id: string;
 }
 
 export interface BrokenTourStop {
-  body?: string;
   title: string;
-  childStops: Array<{ tourId: string; stopNum: number }>;
+  body: string;
+  children: StopLink[];
+  id: string;
 }
 
 export function isNotBroken(
@@ -37,18 +45,12 @@ export interface TourStopEdit {
   title?: string;
 }
 
-export interface RepoState {
-  repository: string;
-  commit: string;
-}
-
 export interface TourFile {
-  id: string;
-  repositories: RepoState[];
-  stops: TourStop[];
   title: string;
-  description: string;
-  version: string;
+  body: string;
+  id: string;
+  repositories: Map<string, string>;
+  stops: TourStop[];
 }
 
 export interface Tour {
@@ -57,44 +59,7 @@ export interface Tour {
 }
 
 export interface RepoIndex {
-  [key: string]: string;
-}
-
-export function validTourFile(obj: any): obj is TourFile {
-  try {
-    return [
-      typeof obj.title === "string",
-      typeof obj.version === "string",
-      obj.stops.every(validTourStop),
-      obj.repositories.every(validRepoState),
-    ].reduce((x, y) => x && y, true);
-  } catch (_) {
-    return false;
-  }
-}
-
-export function validTourStop(obj: any): obj is TourStop {
-  try {
-    return [
-      typeof obj.title === "string",
-      typeof obj.line === "number",
-      typeof obj.relPath === "string",
-      typeof obj.repository === "string",
-    ].reduce((x, y) => x && y, true);
-  } catch (_) {
-    return false;
-  }
-}
-
-export function validRepoState(obj: any): obj is RepoState {
-  try {
-    return [
-      typeof obj.repository === "string",
-      typeof obj.commit === "string",
-    ].reduce((x, y) => x && y, true);
-  } catch (_) {
-    return false;
-  }
+  index: Map<string, string>;
 }
 
 export class TouristError extends Error {

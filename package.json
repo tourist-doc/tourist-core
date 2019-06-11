@@ -1,17 +1,16 @@
 {
-  "name": "tourist",
-  "version": "0.60.0",
+  "name": "tourist-core",
+  "version": "0.1.0",
   "description": "An implementation of Tourist in node.js.",
   "main": "dist/index.js",
-  "repository": "github:hgoldstein95/tourist",
+  "repository": "github:hgoldstein95/tourist-core",
   "scripts": {
     "test": "tsc && mocha --inline-diffs -c --require ts-node/register test/tourist.test.ts test/gitProvider.test.ts",
     "build": "tsc"
   },
   "author": "Harrison Goldstein <hgoldstein95@gmail.com>",
   "license": "MIT",
-  "devDependencies": {},
-  "dependencies": {
+  "devDependencies": {
     "@types/chai": "^4.1.7",
     "@types/chai-as-promised": "^7.1.0",
     "@types/deep-equal": "^1.0.1",
@@ -19,12 +18,15 @@
     "@types/fs-extra": "^7.0.0",
     "@types/mocha": "^5.2.6",
     "@types/node": "^11.13.11",
-    "async-file": "^2.0.2",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
+    "mocha": "^6.1.4"
+  },
+  "dependencies": {
+    "async-file": "^2.0.2",
     "fs-extra": "^8.0.1",
-    "mocha": "^6.1.4",
     "parse-diff": "^0.5.1",
+    "tourist-serialize": "^0.1.0",
     "ts-node": "^8.1.0",
     "tslint": "^5.16.0",
     "typescript": "^3.4.5"
