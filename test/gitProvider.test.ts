@@ -7,7 +7,7 @@ import * as pathutil from "path";
 import { Tourist } from "..";
 import { AbsolutePath, RelativePath } from "../src/paths";
 import { GitProvider } from "../src/versionProvider";
-import { AbsoluteTourStop } from "../src/types";
+import { AbsoluteTourStop, isNotBroken } from "../src/types";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -321,6 +321,44 @@ suite("git-provider", () => {
     {
       const tour = await tourist.resolve(tf);
       expect((tour.stops[0] as AbsoluteTourStop).line).to.equal(1);
+    }
+  });
+
+  test.only("deleting a stop's line results in BrokenTourStop", async () => {
+    fs.writeFileSync(file, "Above deleted\nDELETE ME\nBelow deleted");
+    await commitToRepo("Initial commit");
+
+    const tourist = new Tourist();
+    tourist.mapConfig("repo", repoDir);
+
+    const stop = {
+      absPath: file,
+      body: "This is about to be deleted",
+      line: 2,
+      title: "Delete me!",
+      childStops: [],
+    };
+
+    const tf = await tourist.init();
+    await tourist.add(tf, stop, null);
+
+    fs.writeFileSync(file, "Above deleted\nBelow deleted");
+
+    {
+      const tour = await tourist.resolve(tf);
+      expect(isNotBroken(tour.stops[0])).to.equal(
+        false,
+        "stop should be broken before commit",
+      );
+    }
+    await commitToRepo("Deleted tourstop");
+
+    {
+      const tour = await tourist.resolve(tf);
+      expect(isNotBroken(tour.stops[0])).to.equal(
+        false,
+        "stop should be broken after commit",
+      );
     }
   });
 });
