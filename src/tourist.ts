@@ -164,10 +164,10 @@ export class Tourist {
     if (index >= tf.stops.length) {
       throw new TouristError(0, "Index out of bounds.");
     }
-    if (stopEdit.title) {
+    if (stopEdit.title !== undefined) {
       tf.stops[index].title = stopEdit.title;
     }
-    if (stopEdit.body) {
+    if (stopEdit.body !== undefined) {
       tf.stops[index].body = stopEdit.body;
     }
   }
