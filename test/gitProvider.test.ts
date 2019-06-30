@@ -362,4 +362,35 @@ suite("git-provider", () => {
       );
     }
   });
+
+  test("linking a tour", async () => {
+    fs.writeFileSync(file, "Hello, world!");
+    await commitToRepo("Initial commit");
+
+    const tourist = new Tourist();
+    tourist.mapConfig("repo", repoDir);
+
+    const stop = {
+      absPath: file,
+      body: "body",
+      line: 1,
+      title: "title",
+      childStops: [],
+    };
+
+    const tf1 = await tourist.init("tour1");
+    await tourist.add(tf1, stop, null);
+
+    const tf2 = await tourist.init("tour2");
+
+    await tourist.link(tf1, 0, {
+      tourId: "tour2",
+      stopNum: 0,
+    });
+
+    const tour = await tourist.resolve(tf1);
+    expect(tour.stops[0].childStops.length).to.equal(1);
+    expect(tour.stops[0].childStops[0].tourId).to.equal(tf2.id);
+    expect(tour.stops[0].childStops[0].stopNum).to.equal(0);
+  });
 });

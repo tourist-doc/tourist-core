@@ -492,7 +492,11 @@ export class Tourist {
         stop.repository,
       );
     }
-    const broken = { body: stop.body, title: stop.title, childStops: [] };
+    const broken = {
+      body: stop.body,
+      title: stop.title,
+      childStops: stop.childStops,
+    };
     const changes = await this.vp.getDirtyChangesForFile(
       repoState.commit,
       new RelativePath(stop.repository, stop.relPath),
