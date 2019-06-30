@@ -148,6 +148,15 @@ export class Tourist {
       throw new TouristError(0, "Index out of bounds.");
     }
     tf.stops.splice(index, 1);
+
+    // Prune any repositories that are no longer relevant to this tour
+    const remainingRepos = new Set<string>();
+    for (const stop of tf.stops) {
+      remainingRepos.add(stop.repository);
+    }
+    tf.repositories = tf.repositories.filter((repo) => {
+      return remainingRepos.has(repo.repository);
+    });
   }
 
   /**
