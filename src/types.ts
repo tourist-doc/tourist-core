@@ -15,7 +15,10 @@ export interface AbsoluteTourStop {
   childStops: Array<{ tourId: string; stopNum: number }>;
 }
 
+export type BrokenError = "FileNotFound" | "LineNotFound";
+
 export interface BrokenTourStop {
+  errors: BrokenError[];
   body?: string;
   title: string;
   childStops: Array<{ tourId: string; stopNum: number }>;
@@ -24,7 +27,7 @@ export interface BrokenTourStop {
 export function isNotBroken(
   obj: AbsoluteTourStop | BrokenTourStop,
 ): obj is AbsoluteTourStop {
-  return (obj as AbsoluteTourStop).absPath !== undefined;
+  return (obj as BrokenTourStop).errors === undefined;
 }
 
 export interface TourStopPos {

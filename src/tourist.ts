@@ -11,6 +11,7 @@ import {
   validTourFile,
   TouristError,
   RepoState,
+  BrokenError,
 } from "./types";
 import { VersionProvider, GitProvider } from "./versionProvider";
 import { RelativePath, AbsolutePath } from "./paths";
@@ -234,74 +235,6 @@ export class Tourist {
   }
 
   /**
-   * Checks a tour file for errors.
-   *
-   * The errors will not be thrown, but will instead be put into a list and
-   * returned. The errors that check might return correspond to error codes:
-   * 100, 101, 200, 203, 300
-   *
-   * @param tf
-   */
-  public async check(tf: TourFile): Promise<string[]> {
-    const errors = [] as string[];
-
-    await Promise.all(
-      tf.stops.map(async (stop, i) => {
-        const rel = new RelativePath(stop.repository, stop.relPath);
-        const abs = rel.toAbsolutePath(this.config);
-
-        try {
-          if (!abs) {
-            throw new TouristError(
-              200,
-              `Repository ${stop.repository} is not mapped to a path.`,
-              stop.repository,
-            );
-          }
-
-          await this.verifyLocation(abs, stop.line); // might throw
-
-          const state = tf.repositories.find(
-            (s) => s.repository === stop.repository,
-          );
-          if (!state) {
-            throw new TouristError(
-              300,
-              `No version for repository ${stop.repository}.`,
-              stop.repository,
-            );
-          }
-
-          const currVersion = await this.vp.getCurrentVersion(
-            this.getRepoPath(state.repository),
-          );
-          if (!currVersion) {
-            throw new TouristError(
-              202,
-              `Could not get current version for repository ${
-                stop.repository
-              }.`,
-              stop.repository,
-            );
-          }
-          if (state.commit !== currVersion) {
-            throw new TouristError(
-              203,
-              `Mismatched versions. Repository ${state.repository} is checked` +
-                ` out to the wrong version.`,
-              state.repository,
-            );
-          }
-        } catch (e) {
-          errors.push(`Stop ${i}: ${e.message}`);
-        }
-      }),
-    );
-
-    return errors;
-  }
-
-  /**
    * Updates all stops in a tour file based on changes to the repository state.
    *
    * If any files have been deleted or if the target lines themselves have been
@@ -470,18 +403,19 @@ export class Tourist {
   }
 
   private async verifyLocation(path: AbsolutePath, line: number) {
+    let data: Buffer;
     try {
-      const data: Buffer = await af.readFile(path.path);
-      if (line < 1 || line > data.toString().split("\n").length) {
-        throw new TouristError(
-          101,
-          `Invalid location. No line ${line} in ${path.path}.`,
-        );
-      }
+      data = await af.readFile(path.path);
     } catch (e) {
       throw new TouristError(
         100,
         `Invalid location. Could not read ${path.path}.`,
+      );
+    }
+    if (line < 1 || line > data.toString().split("\n").length) {
+      throw new TouristError(
+        101,
+        `Invalid location. No line ${line} in ${path.path}.`,
       );
     }
   }
@@ -501,23 +435,24 @@ export class Tourist {
         stop.repository,
       );
     }
-    const broken = {
+    const baseFields = {
       body: stop.body,
       title: stop.title,
       childStops: stop.childStops,
     };
+    const makeBroken = (errors: BrokenError[]) => ({
+      errors,
+      ...baseFields,
+    });
     const changes = await this.vp.getDirtyChangesForFile(
       repoState.commit,
       new RelativePath(stop.repository, stop.relPath),
       repoPath,
     );
     if (!changes) {
-      return broken;
+      return makeBroken(["FileNotFound"]);
     }
-    const newLine = await changes.computeDelta(stop.line);
-    if (!newLine) {
-      return broken;
-    }
+
     const absPath = new RelativePath(
       stop.repository,
       changes.name,
@@ -529,14 +464,21 @@ export class Tourist {
         stop.repository,
       );
     }
-    if (stop.line <= 0 || absPath.path === "") {
-      return broken;
+    try {
+      await af.readFile(absPath.path);
+    } catch (e) {
+      return makeBroken(["FileNotFound"]);
+    }
+
+    const newLine = await changes.computeDelta(stop.line);
+    if (!newLine || newLine <= 0) {
+      return makeBroken(["LineNotFound"]);
     }
 
     return {
       absPath: absPath.path,
       line: newLine,
-      ...broken,
+      ...baseFields,
     };
   }
 

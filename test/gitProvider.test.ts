@@ -7,7 +7,12 @@ import * as pathutil from "path";
 import { Tourist } from "..";
 import { AbsolutePath, RelativePath } from "../src/paths";
 import { GitProvider } from "../src/versionProvider";
-import { AbsoluteTourStop, isNotBroken } from "../src/types";
+import {
+  AbsoluteTourStop,
+  isNotBroken,
+  validTourFile,
+  BrokenTourStop,
+} from "../src/types";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -171,12 +176,10 @@ suite("git-provider", () => {
     const tf = await tourist.init();
     await tourist.add(tf, stop, null);
 
-    let checkResults = await tourist.check(tf);
-    expect(checkResults.length).to.equal(0);
+    expect(validTourFile(tf));
 
     const newTf = tourist.deserializeTourFile(tourist.serializeTourFile(tf));
-    checkResults = await tourist.check(newTf);
-    expect(checkResults.length).to.equal(0);
+    expect(validTourFile(newTf));
     expect(newTf.repositories[0].commit === tf.repositories[0].commit);
   });
 
@@ -350,6 +353,51 @@ suite("git-provider", () => {
         false,
         "stop should be broken before commit",
       );
+      expect((tour.stops[0] as BrokenTourStop).errors).to.deep.equal([
+        "LineNotFound",
+      ]);
+    }
+
+    await commitToRepo("Deleted tourstop");
+
+    {
+      const tour = await tourist.resolve(tf);
+      expect(isNotBroken(tour.stops[0])).to.equal(
+        false,
+        "stop should be broken after commit",
+      );
+    }
+  });
+
+  test("deleting a stop's file has correct error message", async () => {
+    fs.writeFileSync(file, "Some content");
+    await commitToRepo("Initial commit");
+
+    const tourist = new Tourist();
+    tourist.mapConfig("repo", repoDir);
+
+    const stop = {
+      absPath: file,
+      body: "This is about to be deleted",
+      line: 1,
+      title: "Delete me!",
+      childStops: [],
+    };
+
+    const tf = await tourist.init();
+    await tourist.add(tf, stop, null);
+
+    fs.removeSync(file);
+
+    {
+      const tour = await tourist.resolve(tf);
+      expect(isNotBroken(tour.stops[0])).to.equal(
+        false,
+        "stop should be broken before commit",
+      );
+      expect((tour.stops[0] as BrokenTourStop).errors).to.deep.equal([
+        "FileNotFound",
+      ]);
     }
 
     await commitToRepo("Deleted tourstop");
