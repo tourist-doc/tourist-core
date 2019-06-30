@@ -324,7 +324,7 @@ suite("git-provider", () => {
     }
   });
 
-  test.only("deleting a stop's line results in BrokenTourStop", async () => {
+  test("deleting a stop's line results in BrokenTourStop", async () => {
     fs.writeFileSync(file, "Above deleted\nDELETE ME\nBelow deleted");
     await commitToRepo("Initial commit");
 
@@ -351,6 +351,7 @@ suite("git-provider", () => {
         "stop should be broken before commit",
       );
     }
+
     await commitToRepo("Deleted tourstop");
 
     {

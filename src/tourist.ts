@@ -189,7 +189,10 @@ export class Tourist {
     if (index >= tf.stops.length) {
       throw new TouristError(0, "Index out of bounds.");
     }
-    const stop = (await this.resolveStop(tf.stops[index])) as AbsoluteTourStop;
+    const stop = (await this.resolveStop(
+      tf,
+      tf.stops[index],
+    )) as AbsoluteTourStop;
     stop.absPath = stopPos.absPath;
     stop.line = stopPos.line;
     await this.add(tf, stop, index);
@@ -213,7 +216,7 @@ export class Tourist {
    */
   public async resolve(tf: TourFile): Promise<Tour> {
     const stops = await Promise.all(
-      tf.stops.map((stop) => this.resolveStop(stop)),
+      tf.stops.map((stop) => this.resolveStop(tf, stop)),
     );
     return {
       stops,
@@ -475,20 +478,23 @@ export class Tourist {
   }
 
   private async resolveStop(
+    tf: TourFile,
     stop: TourStop,
   ): Promise<AbsoluteTourStop | BrokenTourStop> {
     const repoPath = await this.getRepoPath(stop.repository);
-    const commit = await this.vp.getCurrentVersion(repoPath);
-    if (!commit) {
+    const repoState = tf.repositories.find(
+      (st) => st.repository === stop.repository,
+    );
+    if (!repoState) {
       throw new TouristError(
-        202,
-        `Could not get current version for repository ${stop.repository}.`,
+        300,
+        `No version for repository ${stop.repository}.`,
         stop.repository,
       );
     }
     const broken = { body: stop.body, title: stop.title, childStops: [] };
     const changes = await this.vp.getDirtyChangesForFile(
-      commit,
+      repoState.commit,
       new RelativePath(stop.repository, stop.relPath),
       repoPath,
     );
