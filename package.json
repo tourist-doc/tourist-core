@@ -1,6 +1,6 @@
 {
-  "name": "tourist",
-  "version": "0.60.0",
+  "name": "tourist-core",
+  "version": "0.1.0",
   "description": "An implementation of Tourist in node.js.",
   "main": "dist/index.js",
   "repository": "github:hgoldstein95/tourist",
