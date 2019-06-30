@@ -7,6 +7,15 @@ import { FileChanges } from "./fileChanges";
 // This is sort of a hack, but it works
 const exec = (util as any).promisify(child_process.exec);
 
+/* The application currently uses `child_process.exec` to call git, which means
+ * that the output of the git script is buffered by node. This is not ideal, so
+ * we plan to switch to `child_process.spawn`, but until then we need to pick a
+ * buffer size.
+ *
+ * 10 Mb felt reasonable. We don't really have justification beyond that.
+ */
+const BUFFER_SIZE = 1024 * 1024 * 10;
+
 export interface VersionProvider {
   getCurrentVersion(path: AbsolutePath): Promise<string | null>;
   getChangesForFile(
@@ -37,7 +46,7 @@ export class GitProvider implements VersionProvider {
     args: string[],
   ): Promise<string> {
     const fullCommand = `git -C ${path.path} ${command} ${args.join(" ")}`;
-    const res = await exec(fullCommand, { maxBuffer: 1024 * 1024 * 1024 });
+    const res = await exec(fullCommand, { maxBuffer: BUFFER_SIZE });
     if (res.stderr && !res.stderr.startsWith("warning: LF")) {
       throw new Error(res.stderr);
     }
