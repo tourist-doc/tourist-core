@@ -92,7 +92,11 @@ export class Tourist {
       await this.refresh(tf, repo.repository);
     }
 
-    const relPath = absPath.toRelativePath(this.config)!;
+    const relPath = absPath.toRelativePath(this.config);
+    if (!relPath) {
+      throw new TouristError(204, "No known repository in this tree.");
+    }
+
     // Find the appropriate repo version in the tour file
     const repoState = tf.repositories.find(
       (st) => st.repository === relPath.repository,

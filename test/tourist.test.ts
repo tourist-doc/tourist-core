@@ -5,7 +5,7 @@ import { suite, test } from "mocha";
 import os from "os";
 import * as pathutil from "path";
 import { AbsoluteTourStop, Tourist } from "..";
-import { isNotBroken } from "../src/types";
+import { isNotBroken, TouristError } from "../src/types";
 import { VersionProvider } from "../src/versionProvider";
 import { AbsolutePath, RelativePath } from "../src/paths";
 import { FileChanges } from "../src/fileChanges";
@@ -105,6 +105,31 @@ suite("tourist", () => {
 
     expect(tour.stops[0]).to.deep.equal({ ...stop, id: "Tour:0" });
     expect(tour.stops.length).to.equal(1);
+  });
+
+  test("add with no mapped repo fails properly", async () => {
+    tourist.unmapConfig("repo");
+
+    const file = pathutil.join(repoDir, "my-file.txt");
+    await fs.writeFile(file, "Hello, world!");
+
+    const stop = {
+      absPath: file,
+      body: "My test body",
+      line: 1,
+      title: "My test title",
+      childStops: [],
+    };
+
+    const tf = await tourist.init();
+    try {
+      await tourist.add(tf, stop, null);
+      expect(false);
+    } catch (e) {
+      expect(e instanceof TouristError && e.code === 200);
+    }
+
+    tourist.mapConfig("repo", repoDir);
   });
 
   test("add two tourstops", async () => {

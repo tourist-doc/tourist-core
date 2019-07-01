@@ -1,6 +1,6 @@
 # Error Code Breakdown
 
-- 0-99    : Operation input error
+- 0-99 : Operation input error
   - 0, Index out of bounds.
   - 1, One or more indices out of bounds.
 - 100-199 : Input validation error
@@ -11,7 +11,8 @@
   - 201, Path {path} is not mapped as a repository.
   - 202, Could not get current version for repository {repo}.
   - 203, Mismatched versions. Repository {repo} is checked out to the wrong
-         version.
+    version.
+  - 204, No known repository in this tree.
 - 300-399 : Internal state error
   - 300, No version for repository {repo}.
 - 400-499 : Serialization/deserialization error
@@ -21,6 +22,7 @@
 # Error Cases by Operation
 
 - **Tour File Manipulation**
+
   - `init` (no failure cases)
   - `add`
     - 100, Invalid location. Could not read {file}.
@@ -29,7 +31,7 @@
     - 201, Path {path} is not mapped as a repository.
     - 202, Could not get current version for repository {repo}.
     - 203, Mismatched versions. Repository {repo} is checked out to the wrong
-           version.
+      version.
   - `remove`
     - 0, Index out of bounds.
   - `edit`
@@ -41,7 +43,7 @@
     - 201, Path {path} is not mapped as a repository.
     - 202, Could not get current version for repository {repo}.
     - 203, Mismatched versions. Repository {repo} is checked out to the wrong
-           version.
+      version.
   - `resolve`
     - 200, Repository {repo} is not mapped to a path.
   - `check`
@@ -49,7 +51,7 @@
     - 101, Invalid location. No line {line} in {file}.
     - 200, Repository {repo} is not mapped to a path.
     - 203, Mismatched versions. Repository {repo} is checked out to the wrong
-           version.
+      version.
     - 300, No version for repository {repo}.
   - `refresh`
     - 200, Repository {repo} is not mapped to a path.
@@ -58,12 +60,14 @@
     - 1, One or more indices out of bounds.
 
 - **Tour File IO**
+
   - `serializeTourFile` (no error cases)
   - `deserializeTourFile`
     - 400, Invalid JSON string.
     - 401, Object is not a valid TourFile.
 
 - **Tourist State Management**
+
   - `mapConfig` (no error cases)
   - `unmapConfig` (no error cases)
   - `dumpConfig` (no error cases)
