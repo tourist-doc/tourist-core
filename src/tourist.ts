@@ -36,6 +36,7 @@ export class Tourist {
     description: string = "",
   ): Promise<TourFile> {
     return {
+      protocolVersion: "1.0",
       id: title,
       repositories: [],
       stops: [],
@@ -115,7 +116,7 @@ export class Tourist {
     }
 
     // Get relative stop, current version of the repo (might throw error)
-    const relStop = await this.abstractStop(stop, repoState);
+    const relStop = await this.abstractStop(tf, stop, repoState);
 
     if (repoState && repoState.commit !== version) {
       // Repo already versioned, versions disagree
@@ -436,6 +437,7 @@ export class Tourist {
       );
     }
     const baseFields = {
+      id: stop.id,
       body: stop.body,
       title: stop.title,
       childStops: stop.childStops,
@@ -483,6 +485,7 @@ export class Tourist {
   }
 
   private async abstractStop(
+    tf: TourFile,
     stop: AbsoluteTourStop,
     repoState?: RepoState,
   ): Promise<TourStop> {
@@ -516,7 +519,19 @@ export class Tourist {
       }
     }
 
+    let id;
+    if (stop.id) {
+      id = stop.id;
+    } else {
+      if (!tf.generator) {
+        tf.generator = 0;
+      }
+      id = `${tf.id}:${tf.generator.toString()}`;
+      tf.generator++;
+    }
+
     return {
+      id,
       body: stop.body,
       line: stop.line,
       relPath: relPath.path,

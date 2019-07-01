@@ -103,7 +103,7 @@ suite("tourist", () => {
     await tourist.add(tf, stop, null);
     const tour = await tourist.resolve(tf);
 
-    expect(tour.stops[0]).to.deep.equal(stop);
+    expect(tour.stops[0]).to.deep.equal({ ...stop, id: "Tour:0" });
     expect(tour.stops.length).to.equal(1);
   });
 
@@ -125,7 +125,7 @@ suite("tourist", () => {
     await tourist.add(tf, stop, null);
     const tour = await tourist.resolve(tf);
 
-    expect(tour.stops[1]).to.deep.equal(stop);
+    expect(tour.stops[1]).to.deep.equal({ ...stop, id: "Tour:1" });
     expect(tour.stops.length).to.equal(2);
   });
 
@@ -247,8 +247,8 @@ suite("tourist", () => {
     await tourist.scramble(tf, [1, 2, 0]);
     const tour = await tourist.resolve(tf);
 
-    expect(tour.stops[0]).to.deep.equal(stops[1]);
-    expect(tour.stops[1]).to.deep.equal(stops[2]);
-    expect(tour.stops[2]).to.deep.equal(stops[0]);
+    expect(tour.stops[0]).to.deep.equal({ ...stops[1], id: "Tour:1" });
+    expect(tour.stops[1]).to.deep.equal({ ...stops[2], id: "Tour:2" });
+    expect(tour.stops[2]).to.deep.equal({ ...stops[0], id: "Tour:0" });
   });
 });

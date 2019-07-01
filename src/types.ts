@@ -1,4 +1,5 @@
 export interface TourStop {
+  id: string;
   body?: string;
   line: number;
   relPath: string;
@@ -8,6 +9,7 @@ export interface TourStop {
 }
 
 export interface AbsoluteTourStop {
+  id?: string;
   absPath: string;
   body?: string;
   line: number;
@@ -18,6 +20,7 @@ export interface AbsoluteTourStop {
 export type BrokenError = "FileNotFound" | "LineNotFound";
 
 export interface BrokenTourStop {
+  id: string;
   errors: BrokenError[];
   body?: string;
   title: string;
@@ -46,6 +49,8 @@ export interface RepoState {
 }
 
 export interface TourFile {
+  protocolVersion: string;
+  generator?: number;
   id: string;
   repositories: RepoState[];
   stops: TourStop[];
