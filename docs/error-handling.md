@@ -32,6 +32,7 @@
     - 202, Could not get current version for repository {repo}.
     - 203, Mismatched versions. Repository {repo} is checked out to the wrong
       version.
+    - 204, No known repository in this tree.
   - `remove`
     - 0, Index out of bounds.
   - `edit`
@@ -44,15 +45,9 @@
     - 202, Could not get current version for repository {repo}.
     - 203, Mismatched versions. Repository {repo} is checked out to the wrong
       version.
+    - 204, No known repository in this tree.
   - `resolve`
     - 200, Repository {repo} is not mapped to a path.
-  - `check`
-    - 100, Invalid location. Could not read {file}.
-    - 101, Invalid location. No line {line} in {file}.
-    - 200, Repository {repo} is not mapped to a path.
-    - 203, Mismatched versions. Repository {repo} is checked out to the wrong
-      version.
-    - 300, No version for repository {repo}.
   - `refresh`
     - 200, Repository {repo} is not mapped to a path.
     - 300, No version for repository {repo}.
