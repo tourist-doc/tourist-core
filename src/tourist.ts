@@ -13,7 +13,7 @@ import {
   RepoState,
   BrokenError,
 } from "./types";
-import { VersionProvider, GitProvider } from "./versionProvider";
+import { VersionProvider, GitProvider, DiffCache } from "./versionProvider";
 import { RelativePath, AbsolutePath } from "./paths";
 import { FileChanges } from "./fileChanges";
 
@@ -230,9 +230,12 @@ export class Tourist {
    *  See the error-handling.md document for more information.
    */
   public async resolve(tf: TourFile): Promise<Tour> {
+    const cache = DiffCache.getInstance();
+    cache.start();
     const stops = await Promise.all(
       tf.stops.map((stop) => this.resolveStop(tf, stop)),
     );
+    cache.invalidate();
     return {
       stops,
       title: tf.title,
@@ -279,6 +282,8 @@ export class Tourist {
       return;
     }
 
+    const cache = DiffCache.getInstance();
+    cache.start();
     for (const stop of tf.stops) {
       // Skip if the stop isn't in this repository
       if (stop.repository !== repository) {
@@ -305,6 +310,7 @@ export class Tourist {
         stop.relPath = "";
       }
     }
+    cache.invalidate();
 
     repoState.commit = currVersion;
   }
