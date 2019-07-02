@@ -87,11 +87,20 @@ export class GitProvider implements VersionProvider {
     repoPath: AbsolutePath,
     includeWorkingCopy: boolean,
   ): Promise<FileChanges | null> {
-    const diff = await (includeWorkingCopy
-      ? this.diffWithWorkingCopy(commit, repoPath)
-      : this.diffWithHead(commit, repoPath));
+    let files: parseDiff.File[];
 
-    const file = parseDiff(diff).find((f) =>
+    const cache = DiffCache.getInstance();
+    const cachedFiles = cache.load({ commit, repoPath, includeWorkingCopy });
+    if (cachedFiles) {
+      files = cachedFiles;
+    } else {
+      const diff = await (includeWorkingCopy
+        ? this.diffWithWorkingCopy(commit, repoPath)
+        : this.diffWithHead(commit, repoPath));
+      files = parseDiff(diff);
+    }
+
+    const file = files.find((f) =>
       f.from ? pathsEqual(f.from, path.path) : false,
     );
 
@@ -144,12 +153,7 @@ export class GitProvider implements VersionProvider {
     commit: string,
     repoPath: AbsolutePath,
   ): Promise<string> {
-    const cache = DiffCache.getInstance();
-    const cachedResult = cache.load([commit, repoPath]);
-    if (cachedResult) {
-      return cachedResult;
-    }
-    const result = await this.git(repoPath, "diff", [
+    return this.git(repoPath, "diff", [
       "--minimal",
       "--ignore-space-at-eol",
       "-M",
@@ -157,8 +161,6 @@ export class GitProvider implements VersionProvider {
       "--",
       ".",
     ]);
-    cache.save([commit, repoPath], result);
-    return result;
   }
 }
 
@@ -170,20 +172,38 @@ export class DiffCache {
     return DiffCache.instance;
   }
   private static instance: DiffCache;
-  private cache: Map<[string, AbsolutePath], string> | null;
+  private cache: Map<
+    {
+      commit: string;
+      repoPath: AbsolutePath;
+      includeWorkingCopy: boolean;
+    },
+    parseDiff.File[]
+  > | null;
   private constructor() {
     this.cache = null;
   }
   public start() {
     this.cache = new Map();
   }
-  public load(args: [string, AbsolutePath]): string | undefined {
+  public load(args: {
+    commit: string;
+    repoPath: AbsolutePath;
+    includeWorkingCopy: boolean;
+  }): parseDiff.File[] | undefined {
     if (this.cache === null) {
       return undefined;
     }
     return this.cache.get(args);
   }
-  public save(args: [string, AbsolutePath], val: string) {
+  public save(
+    args: {
+      commit: string;
+      repoPath: AbsolutePath;
+      includeWorkingCopy: boolean;
+    },
+    val: parseDiff.File[],
+  ) {
     if (this.cache === null) {
       return;
     }
