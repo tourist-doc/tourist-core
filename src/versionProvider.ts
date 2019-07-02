@@ -3,9 +3,21 @@ import parseDiff from "parse-diff";
 import util from "util";
 import { AbsolutePath, RelativePath } from "./paths";
 import { FileChanges } from "./fileChanges";
+import { parse } from "path";
 
 // This is sort of a hack, but it works
 const exec = (util as any).promisify(child_process.exec);
+
+export function pathsEqual(path1: string, path2: string) {
+  const x = parse(path1);
+  const y = parse(path2);
+
+  return (
+    x.root.toUpperCase() === y.root.toUpperCase() &&
+    x.dir === y.dir &&
+    x.base === y.base
+  );
+}
 
 /* The application currently uses `child_process.exec` to call git, which means
  * that the output of the git script is buffered by node. This is not ideal, so
@@ -79,13 +91,15 @@ export class GitProvider implements VersionProvider {
       ? this.diffWithWorkingCopy(commit, repoPath)
       : this.diffWithHead(commit, repoPath));
 
-    const file = parseDiff(diff).find((f) => f.from === path.path);
+    const file = parseDiff(diff).find((f) =>
+      f.from ? pathsEqual(f.from, path.path) : false,
+    );
 
     const moves = new Map();
     const additions = [] as number[];
     const deletions = [] as number[];
 
-    if (file === undefined || file.from !== path.path) {
+    if (file === undefined || !pathsEqual(file.from!, path.path)) {
       return new FileChanges(additions, deletions, moves, path.path);
     }
 
@@ -109,7 +123,7 @@ export class GitProvider implements VersionProvider {
       }
     }
 
-    return new FileChanges(additions, deletions, moves, file.to || file.from);
+    return new FileChanges(additions, deletions, moves, file.to || file.from!);
   }
 
   private async diffWithHead(
