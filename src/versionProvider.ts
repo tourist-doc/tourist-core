@@ -3,21 +3,14 @@ import parseDiff from "parse-diff";
 import util from "util";
 import { AbsolutePath, RelativePath } from "./paths";
 import { FileChanges } from "./fileChanges";
-import { sep } from "path";
 
 // This is sort of a hack, but it works
 const exec = (util as any).promisify(child_process.exec);
 
 export function pathsEqual(path1: string, path2: string) {
-  const parts1 = path1.split(sep);
-  const parts2 = path2.split(sep);
-  if (parts1.length !== parts2.length) {
-    return false;
-  }
-  return parts1.every((v1, i) => {
-    const v2 = parts2[i];
-    return v1 === v2;
-  });
+  const norm1 = path1.replace("\\", "/");
+  const norm2 = path2.replace("\\", "/");
+  return norm1 === norm2;
 }
 
 /* The application currently uses `child_process.exec` to call git, which means
