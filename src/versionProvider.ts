@@ -8,8 +8,8 @@ import { FileChanges } from "./fileChanges";
 const exec = (util as any).promisify(child_process.exec);
 
 export function pathsEqual(path1: string, path2: string) {
-  const norm1 = path1.replace("\\", "/");
-  const norm2 = path2.replace("\\", "/");
+  const norm1 = path1.replace(/\\/g, "/");
+  const norm2 = path2.replace(/\\/g, "/");
   return norm1 === norm2;
 }
 
