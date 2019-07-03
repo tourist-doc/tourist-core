@@ -339,7 +339,24 @@ export class Tourist {
    * @param tf The tour file to serialize.
    */
   public serializeTourFile(tf: TourFile): string {
-    return JSON.stringify(tf, null, 2);
+    const replacer = [
+      "protocolVersion",
+      "generator",
+      "id",
+      "repositories",
+      "stops",
+      "title",
+      "description",
+      "version",
+      "body",
+      "line",
+      "relPath",
+      "repository",
+      "childStops",
+      "repository",
+      "commit",
+    ];
+    return JSON.stringify(tf, replacer, 2);
   }
 
   /**
