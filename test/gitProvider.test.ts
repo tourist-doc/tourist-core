@@ -170,7 +170,12 @@ suite("git-provider", () => {
       body: "My test body",
       line: 1,
       title: "My test title",
-      childStops: [],
+      childStops: [
+        {
+          tourId: "something",
+          stopNum: 2,
+        },
+      ],
     };
 
     const tf = await tourist.init();
@@ -180,7 +185,7 @@ suite("git-provider", () => {
 
     const newTf = tourist.deserializeTourFile(tourist.serializeTourFile(tf));
     expect(validTourFile(newTf));
-    expect(newTf.repositories[0].commit === tf.repositories[0].commit);
+    expect(newTf).to.deep.equal(tf);
   });
 
   test("add must be done on same commit", async () => {
