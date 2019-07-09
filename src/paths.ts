@@ -7,7 +7,7 @@ export class RelativePath {
 
   constructor(repository: string, path: string) {
     this.repository = repository;
-    this.path = path;
+    this.path = path.replace(/\\/g, "/");
   }
 
   public toAbsolutePath(config: RepoIndex): AbsolutePath | null {
@@ -15,7 +15,9 @@ export class RelativePath {
     if (repoPath === undefined) {
       return null;
     }
-    return new AbsolutePath(pathutil.join(repoPath, this.path));
+    return new AbsolutePath(
+      pathutil.join(repoPath, this.path.replace(/\//g, pathutil.sep)),
+    );
   }
 }
 
@@ -38,9 +40,21 @@ export class AbsolutePath {
     for (const entry of paths) {
       const repo = entry[0];
       const repoRoot = entry[1];
-      if (this.path.startsWith(repoRoot)) {
+
+      // The startsWith check below is insufficient for cases like the following:
+      //   index = { "repo": "/some/repo" }
+      //   this.path = "/some/repository"
+      // The expression this.path.startsWith(repoRoot) would be true, even though one path does not
+      // include the other. The solution is to always work with paths of the form:
+      //   /some/dir/   OR   C:\some\dir\
+      // with a trailing slash.
+      const root =
+        repoRoot[repoRoot.length - 1] === pathutil.sep
+          ? repoRoot
+          : repoRoot + pathutil.sep;
+      if (this.path.startsWith(root)) {
         repository = repo;
-        relPath = pathutil.relative(repoRoot, this.path);
+        relPath = pathutil.relative(root, this.path);
         break;
       }
     }

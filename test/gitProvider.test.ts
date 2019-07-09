@@ -54,7 +54,10 @@ suite("git-provider", () => {
 
     repository = new AbsolutePath(repoDir);
     await gp.git(repository, "init", []);
-    fileName = "my-file.txt";
+    const fileDir = pathutil.join("some", "dir");
+    await fs.mkdirs(pathutil.join(repoDir, fileDir));
+
+    fileName = pathutil.join(fileDir, "my-file.txt");
     file = pathutil.join(repoDir, fileName);
   });
 

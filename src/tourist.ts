@@ -16,6 +16,7 @@ import {
 import { VersionProvider, GitProvider, DiffCache } from "./versionProvider";
 import { RelativePath, AbsolutePath } from "./paths";
 import { FileChanges } from "./fileChanges";
+import * as pathutil from "path";
 
 export class Tourist {
   public readonly config: RepoIndex;
@@ -386,6 +387,9 @@ export class Tourist {
    * @param path The path value.
    */
   public mapConfig(repo: string, path: string) {
+    if (path[path.length - 1] !== pathutil.sep) {
+      path += pathutil.sep;
+    }
     this.config[repo] = path;
   }
 
