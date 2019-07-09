@@ -5,7 +5,7 @@ import { suite, test } from "mocha";
 import os from "os";
 import * as pathutil from "path";
 import { AbsoluteTourStop, Tourist } from "..";
-import { isNotBroken, TouristError } from "../src/types";
+import { isNotBroken, TouristError, RepoIndex } from "../src/types";
 import { VersionProvider } from "../src/versionProvider";
 import { AbsolutePath, RelativePath } from "../src/paths";
 import { FileChanges } from "../src/fileChanges";
@@ -321,5 +321,18 @@ suite("tourist", () => {
     const tour = await tourist.resolve(newTf);
 
     expect((tour.stops[0] as AbsoluteTourStop).absPath).to.equal(file);
+  });
+
+  test("paths compare correctly", async () => {
+    const index: RepoIndex = {
+      repo: pathutil.join(outputDir, "some", "repo"),
+    };
+
+    const abs = new AbsolutePath(
+      pathutil.join(outputDir, "some", "repository"),
+    );
+
+    // tslint:disable-next-line: no-unused-expression
+    expect(abs.toRelativePath(index)).to.be.null;
   });
 });
