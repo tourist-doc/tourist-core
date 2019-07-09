@@ -276,4 +276,50 @@ suite("tourist", () => {
     expect(tour.stops[1]).to.deep.equal({ ...stops[2], id: "Tour:2" });
     expect(tour.stops[2]).to.deep.equal({ ...stops[0], id: "Tour:0" });
   });
+
+  test("file path is standard", async () => {
+    await fs.mkdirs(pathutil.join(repoDir, "test"));
+    const file = pathutil.join(repoDir, "test", "my-file.txt");
+    await fs.writeFile(file, "Hello, world!");
+
+    const stop = {
+      absPath: file,
+      body: "My test body",
+      line: 1,
+      title: "My test title",
+      childStops: [],
+    };
+
+    const tf = await tourist.init();
+    await tourist.add(tf, stop, null);
+
+    expect(tf.stops[0].relPath).to.equal("test/my-file.txt");
+  });
+
+  test("read and write tour with long file path", async () => {
+    await fs.mkdirs(pathutil.join(repoDir, "test"));
+    const file = pathutil.join(repoDir, "test", "my-file.txt");
+    await fs.writeFile(file, "Hello, world!");
+
+    const stop = {
+      absPath: file,
+      body: "My test body",
+      line: 1,
+      title: "My test title",
+      childStops: [],
+    };
+
+    const tf = await tourist.init();
+    await tourist.add(tf, stop, null);
+
+    const newTf = await tourist.deserializeTourFile(
+      tourist.serializeTourFile(tf),
+    );
+
+    expect(tf).to.deep.equal(newTf);
+
+    const tour = await tourist.resolve(newTf);
+
+    expect((tour.stops[0] as AbsoluteTourStop).absPath).to.equal(file);
+  });
 });

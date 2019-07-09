@@ -7,7 +7,7 @@ export class RelativePath {
 
   constructor(repository: string, path: string) {
     this.repository = repository;
-    this.path = path;
+    this.path = path.replace(/\\/g, "/");
   }
 
   public toAbsolutePath(config: RepoIndex): AbsolutePath | null {
@@ -15,7 +15,9 @@ export class RelativePath {
     if (repoPath === undefined) {
       return null;
     }
-    return new AbsolutePath(pathutil.join(repoPath, this.path));
+    return new AbsolutePath(
+      pathutil.join(repoPath, this.path.replace(/\//g, pathutil.sep)),
+    );
   }
 }
 
