@@ -20,7 +20,7 @@ familiar to the codebase, but not that particular logical flow.
 
 As of now, Tourist only available as a node module and an associated
 extension for Visual Studio Code. The extension can be found at
-[hgoldstien95/tourist-vscode](https://github.com/hgoldstein95/tourist-vscode).
+[tourist-doc/tourist-vscode](https://github.com/tourist-doc/tourist-vscode).
 We plan on releasing a command-line tool in the near future that will provide
 an API that other edtiors can more easily use.
 
