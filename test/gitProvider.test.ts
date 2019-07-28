@@ -435,11 +435,11 @@ suite("git-provider", () => {
     };
 
     const tf1 = await tourist.init("tour1");
-    await tourist.add(tf1, stop, null);
+    const stopId = await tourist.add(tf1, stop, null);
 
     const tf2 = await tourist.init("tour2");
 
-    await tourist.link(tf1, 0, {
+    await tourist.link(tf1, stopId, {
       tourId: "tour2",
       stopNum: 0,
     });

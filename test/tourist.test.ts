@@ -167,8 +167,8 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null);
-    await tourist.remove(tf, 0);
+    const stopId = await tourist.add(tf, stop, null);
+    await tourist.remove(tf, stopId);
     const tour = await tourist.resolve(tf);
 
     expect(tour.stops.length).to.equal(0);
@@ -187,8 +187,11 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null);
-    await tourist.edit(tf, 0, { body: "Edited body", title: "Edited title" });
+    const stopId = await tourist.add(tf, stop, null);
+    await tourist.edit(tf, stopId, {
+      body: "Edited body",
+      title: "Edited title",
+    });
     const tour = await tourist.resolve(tf);
 
     expect(tour.stops[0].body).to.equal("Edited body");
@@ -208,8 +211,8 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null);
-    await tourist.move(tf, 0, { absPath: file, line: 3 });
+    const stopId = await tourist.add(tf, stop, null);
+    await tourist.move(tf, stopId, { absPath: file, line: 3 });
     const tour = await tourist.resolve(tf);
 
     expect(isNotBroken(tour.stops[0]));
@@ -230,9 +233,9 @@ suite("tourist", () => {
     };
 
     const tf = await tourist.init();
-    await tourist.add(tf, stop, null);
+    const stopId = await tourist.add(tf, stop, null);
     try {
-      await tourist.move(tf, 0, { absPath: file, line: 42 });
+      await tourist.move(tf, stopId, { absPath: file, line: 42 });
       expect(false);
     } catch (e) {
       expect(e.message).to.contain("Invalid");
@@ -244,7 +247,7 @@ suite("tourist", () => {
     expect((tour.stops[0] as AbsoluteTourStop).line).to.equal(1);
   });
 
-  test("scramble tourstops", async () => {
+  test("reorder tourstops", async () => {
     const files = [
       pathutil.join(repoDir, "my-file-1.txt"),
       pathutil.join(repoDir, "my-file-2.txt"),
@@ -266,15 +269,15 @@ suite("tourist", () => {
     );
 
     const tf = await tourist.init();
-    for (const stop of stops) {
-      await tourist.add(tf, stop, null);
-    }
-    await tourist.scramble(tf, [1, 2, 0]);
+    const stopIds = await Promise.all(
+      stops.map((stop) => tourist.add(tf, stop, null)),
+    );
+    await tourist.reorder(tf, stopIds[0], 2);
     const tour = await tourist.resolve(tf);
 
-    expect(tour.stops[0]).to.deep.equal({ ...stops[1], id: "Tour:1" });
-    expect(tour.stops[1]).to.deep.equal({ ...stops[2], id: "Tour:2" });
-    expect(tour.stops[2]).to.deep.equal({ ...stops[0], id: "Tour:0" });
+    expect(tour.stops[0]).to.deep.equal({ ...stops[1], id: stopIds[1] });
+    expect(tour.stops[1]).to.deep.equal({ ...stops[2], id: stopIds[2] });
+    expect(tour.stops[2]).to.deep.equal({ ...stops[0], id: stopIds[0] });
   });
 
   test("file path is standard", async () => {

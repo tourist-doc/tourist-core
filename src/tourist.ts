@@ -85,7 +85,20 @@ export class Tourist {
     tf: TourFile,
     stop: AbsoluteTourStop,
     index: number | null = null,
-  ) {
+    id: string | null = null,
+  ): Promise<string> {
+    if (id === null) {
+      if (stop.id) {
+        id = stop.id;
+      } else {
+        if (!tf.generator) {
+          tf.generator = 0;
+        }
+        id = `${tf.id}:${tf.generator.toString()}`;
+        tf.generator++;
+      }
+    }
+
     const absPath = new AbsolutePath(stop.absPath);
     // Make sure file exists and line is valid (might throw error)
     await this.verifyLocation(absPath, stop.line);
@@ -121,7 +134,7 @@ export class Tourist {
     }
 
     // Get relative stop, current version of the repo (might throw error)
-    const relStop = await this.abstractStop(tf, stop, repoState);
+    const relStop = await this.abstractStop(id, stop, repoState);
 
     if (repoState && repoState.commit !== version) {
       // Repo already versioned, versions disagree
@@ -139,20 +152,21 @@ export class Tourist {
     } else {
       tf.stops.push(relStop);
     }
+    return relStop.id;
   }
 
   /**
    * Removes a stop from the tour.
    *
    * @param tf
-   * @param index The index of the stop to be removed. A negative index counts
-   *  from the end of the list.
+   * @param stopId The ID of the the stop to be removed.
    * @throws Error code(s): 0
    *  See the error-handling.md document for more information.
    */
-  public async remove(tf: TourFile, index: number) {
-    if (index >= tf.stops.length) {
-      throw new TouristError(0, "Index out of bounds.");
+  public async remove(tf: TourFile, stopId: string) {
+    const index = tf.stops.findIndex((stop) => stop.id === stopId);
+    if (index < 0) {
+      throw new TouristError(0, "Stop ID is not in tour.");
     }
     tf.stops.splice(index, 1);
 
@@ -170,15 +184,15 @@ export class Tourist {
    * Edit the title or body of a tour stop.
    *
    * @param tf
-   * @param index The index of the stop to be edited. A negative index counts
-   *  from the end of the list.
+   * @param stopId The ID of the stop to be edited.
    * @param stopEdit A delta to be applied to the stop.
    * @throws Error code(s): 0
    *  See the error-handling.md document for more information.
    */
-  public async edit(tf: TourFile, index: number, stopEdit: TourStopEdit) {
-    if (index >= tf.stops.length) {
-      throw new TouristError(0, "Index out of bounds.");
+  public async edit(tf: TourFile, stopId: string, stopEdit: TourStopEdit) {
+    const index = tf.stops.findIndex((stop) => stop.id === stopId);
+    if (index < 0) {
+      throw new TouristError(0, "Stop ID is not in tour.");
     }
     if (stopEdit.title !== undefined) {
       tf.stops[index].title = stopEdit.title;
@@ -192,34 +206,39 @@ export class Tourist {
    * Move the path or line of a tour stop.
    *
    * @param tf
-   * @param index The index of the stop to be removed. A negative index counts
-   *  from the end of the list.
+   * @param stopId The ID of the stop to be removed.
    * @param stopPos A delta to be applied to the stop.
-   * @param versionMode Here be dragons. Don't mess with this unless you really
-   *  know you want to. This will be used down the line to allow for more
-   *  supported version providers, but for now git is the only one.
    * @throws Error code(s): 0, 100, 101, 200, 201, 202, 203
    *  See the error-handling.md document for more information.
    */
-  public async move(tf: TourFile, index: number, stopPos: TourStopPos) {
-    if (index >= tf.stops.length) {
-      throw new TouristError(0, "Index out of bounds.");
+  public async move(tf: TourFile, stopId: string, stopPos: TourStopPos) {
+    const index = tf.stops.findIndex((s) => s.id === stopId);
+    if (index < 0) {
+      throw new TouristError(0, "Stop ID is not in tour.");
     }
-    const stop = (await this.resolveStop(
-      tf,
-      tf.stops[index],
-    )) as AbsoluteTourStop;
+    const relStop = tf.stops[index];
+    const stop = (await this.resolveStop(tf, relStop)) as AbsoluteTourStop;
     stop.absPath = stopPos.absPath;
     stop.line = stopPos.line;
-    await this.add(tf, stop, index);
-    await this.remove(tf, index + 1);
+    await this.add(tf, stop, index, relStop.id);
+    tf.stops.splice(index + 1, 1);
   }
 
+  /**
+   * Links a tour to another.
+   *
+   * @throws Error code(s): 0
+   *  See the error-handling.md document for more information.
+   */
   public async link(
     tf: TourFile,
-    index: number,
+    stopId: string,
     childStop: { tourId: string; stopNum: number },
   ) {
+    const index = tf.stops.findIndex((s) => s.id === stopId);
+    if (index < 0) {
+      throw new TouristError(0, "Stop ID is not in tour.");
+    }
     tf.stops[index].childStops.push(childStop);
   }
 
@@ -317,21 +336,27 @@ export class Tourist {
   }
 
   /**
-   * Scrambles the stops in the tour.
+   * Reorders a stop within a tour.
    *
-   * The passing indices `[1, 1, 2]` means that the new stops will be:
-   * `[stops[1], stops[1], stops[2]]`.
+   * If the stops are `[a, b, c, d, e]` and `d` is moved to index 1, the result will be
+   * `[a, d, b, c, e]`.
    *
    * @param tf
-   * @param indices Indices to use for scrambling.
+   * @param stopId The ID of the stop to reorder.
+   * @param newIndex The new index for that stop.
    * @throws Error code(s): 1
    *  See the error-handling.md document for more information.
    */
-  public async scramble(tf: TourFile, indices: number[]) {
-    if (indices.some((i) => i >= tf.stops.length)) {
-      throw new TouristError(1, "One or more indices out of bounds.");
+  public async reorder(tf: TourFile, stopId: string, newIndex: number) {
+    if (newIndex < 0 || newIndex >= tf.stops.length) {
+      throw new TouristError(0, "New index is out of bounds.");
     }
-    tf.stops = indices.map((i) => tf.stops[i]);
+    const oldIndex = tf.stops.findIndex((s) => s.id === stopId);
+    if (oldIndex < 0) {
+      throw new TouristError(0, "Stop ID is not in tour.");
+    }
+    const stop = tf.stops.splice(oldIndex, 1)[0];
+    tf.stops.splice(newIndex, 0, stop);
   }
 
   /**
@@ -517,7 +542,7 @@ export class Tourist {
   }
 
   private async abstractStop(
-    tf: TourFile,
+    id: string,
     stop: AbsoluteTourStop,
     repoState?: RepoState,
   ): Promise<TourStop> {
@@ -549,17 +574,6 @@ export class Tourist {
       if (changes) {
         stop.line = changes.undoDelta(stop.line)!;
       }
-    }
-
-    let id;
-    if (stop.id) {
-      id = stop.id;
-    } else {
-      if (!tf.generator) {
-        tf.generator = 0;
-      }
-      id = `${tf.id}:${tf.generator.toString()}`;
-      tf.generator++;
     }
 
     return {
