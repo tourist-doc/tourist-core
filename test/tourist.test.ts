@@ -10,6 +10,10 @@ import { VersionProvider } from "../src/versionProvider";
 import { AbsolutePath, RelativePath } from "../src/paths";
 import { FileChanges } from "../src/fileChanges";
 
+/**
+ * Tests for Tourist.
+ */
+
 class MockProvider implements VersionProvider {
   // tslint:disable variable-name
   public async getCurrentVersion(_path: AbsolutePath): Promise<string | null> {
